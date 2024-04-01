@@ -1,7 +1,8 @@
-#include <engine.h>
 #include <stdio.h>
+#include "main.h"
+#include <engine.h>
 
-int main() {
-    auto c = a();
-    printf("number: %i", c);
+extern "C" void init_game() {
+    printf("hello world!");
+    engine_api();
 }

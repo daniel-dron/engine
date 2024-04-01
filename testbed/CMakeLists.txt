@@ -1,9 +1,9 @@
-add_executable(testbed
+add_library(testbed SHARED
     src/main.cpp
 )
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-target_include_directories(testbed PRIVATE ${PROJECT_SOURCE_DIR}/engine/src)
-target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/)
+target_include_directories(testbed PUBLIC ${PROJECT_SOURCE_DIR}/engine/src)
 
 target_link_libraries(testbed PRIVATE engine)
 target_link_libraries(testbed PRIVATE imgui)

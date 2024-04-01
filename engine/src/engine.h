@@ -1,1 +1,1 @@
-__declspec(dllexport) int a();
+__declspec(dllexport) void engine_api();

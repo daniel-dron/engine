@@ -3,15 +3,31 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
-#include "engine.h"
 #include <iostream>
 
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
 
-int a()
+#include <Windows.h>
+
+#include "engine.h"
+
+typedef void (*init_game_t)();
+
+void engine_api() {
+    printf("game called engine!\n");
+}
+
+int main()
 {
+    HINSTANCE gameDLL = LoadLibrary("../testbed/testbed.dll");
+    assert(gameDLL && "no game dll!");
+
+    init_game_t init_game = (init_game_t)GetProcAddress(gameDLL, "init_game");
+    assert(init_game && "no init game!");
+
+    init_game();
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -62,7 +78,6 @@ int a()
         }
 
         ImGui::ShowDemoWindow();
-
 
         {
             ImGui::Render();
