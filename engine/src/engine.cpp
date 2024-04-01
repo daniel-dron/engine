@@ -13,6 +13,11 @@
 
 #include "engine.h"
 
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+
+#include <glm/glm.hpp>
+
 typedef void (*init_game_t)();
 
 void engine_api() {
@@ -28,6 +33,12 @@ int main()
     assert(init_game && "no init game!");
 
     init_game();
+
+    Assimp::Importer importer;
+    const auto scene = importer.ReadFile("ehello", aiProcess_Triangulate);
+
+    glm::vec3 t = glm::vec3(3.6f);
+    printf("%f", t.x);
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
