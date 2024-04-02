@@ -10,10 +10,17 @@
 #include <imgui/backends/imgui_impl_glfw.h>
 
 #include "renderer/resources/bindable.hpp"
+#include "renderer/resources/resources.hpp"
 #include "entry.h"
+#include "renderer/resources/gl_errors.hpp"
+#include "defines.hpp"
 
 const char* init_game_window_func_name = "init_game_window";
 typedef void (*init_game_window_t)(app_desc* desc);
+
+void render_elements(u32 count) {
+    GLCALL(glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr));
+}
 
 void load_game_funcs(HINSTANCE dll, app_behaviour* app) {
     auto default_on_init = []() -> b8 {
@@ -56,7 +63,7 @@ static void windowSizeCallback(GLFWwindow* window, int width, int height) {
     app->on_resize(width, height);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     HINSTANCE gameDLL = LoadLibrary("../testbed/testbedd.dll");
     assert(gameDLL && "no game dll!");
 
@@ -104,7 +111,9 @@ int main() {
 
     glfwSetWindowSizeCallback(window, windowSizeCallback);
 
+    ResourceState::get()->init(argv[0]);
     app->on_init();
+
     while (!glfwWindowShouldClose(window))
     {
         glfwGetCurrentContext();

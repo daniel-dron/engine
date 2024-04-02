@@ -3,6 +3,8 @@ add_executable(engine
     src/renderer/resources/buffer.cpp
     src/renderer/resources/vertex_layout.cpp
     src/renderer/resources/vertex_array.cpp
+    src/renderer/resources/shader_program.cpp
+    src/renderer/resources/gl_errors.cpp
     src/glad/glad.c
 )
 set_property(TARGET engine PROPERTY ENABLE_EXPORTS 1)

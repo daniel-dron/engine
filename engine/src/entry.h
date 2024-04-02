@@ -10,6 +10,8 @@ __declspec(dllexport) int void_export() {
     return NULL;
 }
 
+__declspec(dllexport) void render_elements(u32 count);
+
 struct app_desc {
 
     i32 pos_x;

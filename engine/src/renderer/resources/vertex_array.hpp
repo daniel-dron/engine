@@ -13,7 +13,7 @@ struct VertexArraySpecification {
     std::shared_ptr<GlBuffer> index_buffer;
 };
 
-class VertexArray : Bindable {
+class KAPI VertexArray : Bindable {
 public:
     static std::shared_ptr<VertexArray> create(const VertexArraySpecification &spec) {
         return std::make_shared<VertexArray>(spec);

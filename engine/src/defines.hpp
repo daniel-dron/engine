@@ -44,4 +44,25 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define TRUE 1
 #define FALSE 0
 
+#define GRAPHICS_DEBUG 1
+
+#if GRAPHICS_DEBUG
+#define LDEBUG(...)                                                                                                     \
+    std::cout << "[" << __FUNCTION__ << "]: " << std::format(__VA_ARGS__).c_str() << std::endl
+#define LERROR(...) 																								   \
+	std::cerr << "[" << __FUNCTION__ << "]: " << std::format(__VA_ARGS__).c_str() << std::endl
+#else
+#define KDEBUG(...)
+#define LERROR(...)
+#endif
+
+#if GRAPHICS_DEBUG
+#define GLCALL(x)                                                                                                      \
+    x;                                                                                                                 \
+    glCheckError()
+#else
+#define GLCALL(x) x;
+#endif
+
+
 #define KAPI __declspec(dllexport)

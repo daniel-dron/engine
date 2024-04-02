@@ -2,10 +2,11 @@
 
 VertexArray::VertexArray(const VertexArraySpecification& spec)
 {
-    spec.vertex_buffer->bind();
-
     glGenVertexArrays(1, &m_id);
     glBindVertexArray(m_id);
+
+    spec.vertex_buffer->bind();
+    spec.index_buffer->bind();
 
     u64 offset = 0;
     u32 idx = 0;
