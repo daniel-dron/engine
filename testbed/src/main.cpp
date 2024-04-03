@@ -8,16 +8,6 @@
 #include <renderer/resources/vertex_array.hpp>
 #include <renderer/resources/vertex_layout.hpp>
 
-extern "C" KAPI void init_game_window(app_desc * desc) {
-    desc->pos_x = 100;
-    desc->pos_y = 100;
-
-    desc->width = 1920;
-    desc->height = 1080;
-
-    desc->window_name = "dev: architecture";
-}
-
 std::shared_ptr<ShaderProgram> shader;
 std::shared_ptr<GlBuffer> vbuffer;
 std::shared_ptr<GlBuffer> ibuffer;

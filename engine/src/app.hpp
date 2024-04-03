@@ -58,10 +58,15 @@ struct game_logic {
     void* _dll;
 };
 
+/**
+ * @brief Represents an application.
+ * 
+ * This struct holds the description and logic of an application.
+ */
 struct app {
 public:
-    std::unique_ptr<app_desc> desc;
-    std::unique_ptr<game_logic> logic;
+    std::unique_ptr<app_desc> desc; /**< The description of the application. */
+    std::unique_ptr<game_logic> logic; /**< The logic of the application. */
 };
 
 extern std::unique_ptr<app> g_app;
