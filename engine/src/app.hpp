@@ -5,6 +5,9 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <array>
+
+struct GLFWwindow;
 
 struct app_desc {
     i32 pos_x;
@@ -58,6 +61,15 @@ struct game_logic {
     void* _dll;
 };
 
+struct key {
+    // key is currently down
+    bool down;
+    // key was pressed this frame
+    bool pressed;
+    // key was released this frame
+    bool released;
+};
+
 /**
  * @brief Represents an application.
  * 
@@ -65,8 +77,36 @@ struct game_logic {
  */
 struct app {
 public:
-    std::unique_ptr<app_desc> desc; /**< The description of the application. */
-    std::unique_ptr<game_logic> logic; /**< The logic of the application. */
+    static std::unique_ptr<app> create(std::unique_ptr<app_desc> desc);
+
+    void add_logic(const std::string &dll_name);
+    b8 init();
+
+    void run();
+
+    b8 update();
+    b8 render();
+
+    u64 now();
+    f64 get_delta() const;
+    static const u64 NS_PER_SECOND = 1'000'000'000;
+
+    std::array<key, 348> keys;
+private:
+    f64 _delta;
+    u64 _last_frame; 
+    
+    // clear keys
+    void clear();
+
+    static void _window_size_callback(GLFWwindow* window, i32 width, i32 height);
+    static void _cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos);
+    static void _mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods);
+    static void _key_callback(GLFWwindow* window, i32 key, i32 scan_code, i32 action, i32 mods);
+
+    GLFWwindow* _window; /**< The window of the application. */
+    std::unique_ptr<app_desc> _desc; /**< The description of the application. */
+    std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
 };
 
 extern std::unique_ptr<app> g_app;

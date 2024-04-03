@@ -4,6 +4,13 @@
 #include <renderer/resources/resources.hpp>
 #include <Windows.h>
 #include <iostream>
+#include "glad/glad.h"
+#include <glfw/glfw3.h>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+
+std::unique_ptr<app> g_app;
 
 std::string game_logic::get_current_dll_path() const {
     return (ResourceState::get()->_workingDirectory / std::format("game{}.dll", current_dll_id)).string();
@@ -71,10 +78,198 @@ void game_logic::load_game(const std::string& dll_name) {
         };
     auto on_shutdown = GetProcAddress(_dll, "on_shutdown");
     this->on_shutdown = on_shutdown != nullptr ? reinterpret_cast<void(*)(void)>(on_shutdown) : default_on_shutdown;
-
-    // finally call the init function
-    KDEBUG("Calling on_init");
-    this->on_init();
 }
 
-std::unique_ptr<app> g_app = std::make_unique<app>();
+std::unique_ptr<app> app::create(std::unique_ptr<app_desc> desc)
+{
+    auto _app = std::make_unique<app>();
+    _app->_desc = std::move(desc);
+    return _app;
+}
+
+void app::add_logic(const std::string& dll_name)
+{
+    _logic = std::make_unique<game_logic>();
+    _logic->load_game("testbedd.dll");
+}
+
+b8 app::init()
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwSwapInterval(0);
+
+    _window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
+    if (_window == nullptr) {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        throw std::exception();
+    }
+
+    glfwMakeContextCurrent(_window);
+
+    // set callbacks
+    glfwSetWindowSizeCallback(_window, _window_size_callback);
+    glfwSetCursorPosCallback(_window, _cursor_callback);
+    glfwSetMouseButtonCallback(_window, _mouse_callback);
+    glfwSetKeyCallback(_window, _key_callback);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        throw std::exception();
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    ImGui_ImplGlfw_InitForOpenGL(_window, true);
+    ImGui_ImplOpenGL3_Init("#version 430");
+
+    return _logic->on_init();
+
+    return true;
+}
+
+void app::run()
+{
+    init();
+
+    while (!glfwWindowShouldClose(_window))
+    {
+        glfwGetCurrentContext();
+
+        update();
+
+        {
+            glClearColor(0.4f, 0.0f, 0.2f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+        }
+
+        render();
+
+        ImGui::ShowDemoWindow();
+
+        {
+            ImGui::Begin("dll");
+            if (ImGui::Button("Reload DLL")) {
+                if (_logic) {
+                    _logic->load_game("testbedd.dll");
+
+                    // call on_init after loading new dll
+                    _logic->on_init();
+                }
+            }
+            ImGui::End();
+        }
+
+        // end frame
+        {
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            auto backup = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup);
+
+            glfwSwapBuffers(glfwGetCurrentContext());
+        }
+        glfwPollEvents();
+    }
+
+    _logic->on_shutdown();
+}
+
+b8 app::update()
+{
+    // calculate delta time
+    const auto now = this->now();
+    _delta = float(now - _last_frame) / NS_PER_SECOND;
+    _last_frame = now;
+
+    // call game logic update
+    _logic->on_update();
+
+    // clear just-pressed keys
+    this->clear();
+
+    return true;
+}
+
+b8 app::render()
+{
+    _logic->on_render();
+
+    return true;
+}
+
+u64 app::now()
+{
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch())
+        .count();
+}
+
+f64 app::get_delta() const
+{
+    return _delta;
+}
+
+void app::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
+{
+    g_app->_desc->width = width;
+    g_app->_desc->height = height;
+    glViewport(0, 0, width, height);
+    g_app->_logic->on_resize(width, height);
+}
+
+void app::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos) {
+}
+
+void app::_mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods)
+{
+}
+
+void app::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action, i32 mods)
+{
+    switch (key) {
+    case GLFW_KEY_ESCAPE:
+        if (action == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        break;
+    case GLFW_KEY_SPACE:
+        if (action == GLFW_PRESS) {
+            g_app->keys[key].down = true;
+            g_app->keys[key].pressed = true;
+        } else if (action == GLFW_RELEASE) {
+            g_app->keys[key].down = false;
+            g_app->keys[key].released = true;
+        }
+        break;
+   case GLFW_KEY_V:
+        break;
+    default:
+        break;
+   }
+}
+
+void app::clear()
+{
+    for (auto& key : keys) {
+        key.pressed = false;
+        key.released = false;
+    }
+}
