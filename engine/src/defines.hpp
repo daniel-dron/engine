@@ -47,13 +47,13 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define GRAPHICS_DEBUG 1
 
 #if GRAPHICS_DEBUG
-#define LDEBUG(...)                                                                                                     \
+#define KDEBUG(...)                                                                                                     \
     std::cout << "[" << __FUNCTION__ << "]: " << std::format(__VA_ARGS__).c_str() << std::endl
-#define LERROR(...) 																								   \
+#define KERROR(...) 																								   \
 	std::cerr << "[" << __FUNCTION__ << "]: " << std::format(__VA_ARGS__).c_str() << std::endl
 #else
 #define KDEBUG(...)
-#define LERROR(...)
+#define KERROR(...)
 #endif
 
 #if GRAPHICS_DEBUG

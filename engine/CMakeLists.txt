@@ -1,5 +1,6 @@
 add_executable(engine
     src/entry.cpp
+    src/app.cpp
     src/renderer/resources/buffer.cpp
     src/renderer/resources/vertex_layout.cpp
     src/renderer/resources/vertex_array.cpp

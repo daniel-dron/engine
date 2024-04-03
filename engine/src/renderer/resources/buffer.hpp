@@ -16,11 +16,11 @@ struct BufferSpecification {
 
 class KAPI GlBuffer : Bindable {
 public:
-    static std::shared_ptr<GlBuffer> create(const BufferSpecification &spec) {
+    static std::shared_ptr<GlBuffer> create(const BufferSpecification& spec) {
         return std::make_shared<GlBuffer>(spec);
     }
 
-    GlBuffer(const BufferSpecification &spec);
+    GlBuffer(const BufferSpecification& spec);
     ~GlBuffer();
 
     void bind() override;
@@ -34,4 +34,29 @@ private:
     GLenum m_type;
     u32 m_count;
     u32 m_element_size;
+};
+
+struct UniformBufferSpecification {
+    u32 index;
+    u32 size;
+    GLenum usage;
+};
+
+class KAPI UniformBuffer : Bindable {
+public:
+    static std::shared_ptr<UniformBuffer> create(const UniformBufferSpecification &spec) {
+        return std::make_shared<UniformBuffer>(spec);
+    }
+
+    UniformBuffer(const UniformBufferSpecification &spec);
+    ~UniformBuffer();
+
+    void bind() override;
+    void unbind() override;
+
+    void update(void* data, u32 size);
+private:
+    u32 m_index;
+    u32 m_size;
+    GLenum m_usage;
 };
