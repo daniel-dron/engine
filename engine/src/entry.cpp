@@ -4,8 +4,6 @@
 #include <cassert>
 #include <thread>
 
-
-
 #include "renderer/resources/bindable.hpp"
 #include "renderer/resources/resources.hpp"
 #include "entry.h"
@@ -14,6 +12,11 @@
 
 void render_elements(u32 count) {
     GLCALL(glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr));
+}
+
+std::string get_texture_path(const char* name)
+{
+    return ResourceState::get()->getTexturePath(name).string();
 }
 
 int main(int argc, char* argv[]) {

@@ -9,3 +9,5 @@ __declspec(dllexport) int void_export() {
 }
 
 __declspec(dllexport) void render_elements(u32 count);
+
+__declspec(dllexport) std::string get_texture_path(const char* name);

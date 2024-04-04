@@ -1,0 +1,85 @@
+#include "texture.hpp"
+
+#include <filesystem>
+#include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "resources.hpp"
+#include <defines.hpp>
+
+#include "gl_errors.hpp"
+
+Texture::Texture(const TextureSpecification& spec) : m_spec(spec) {
+    // from file
+    if (m_spec.data == nullptr && m_spec.path != "")
+        loadFromFile();
+    // from data
+    else
+        loadFromData();
+}
+
+void Texture::bind() {
+    glActiveTexture(GL_TEXTURE0 + m_spec.slot);
+    GLCALL(glBindTexture(m_spec.target, m_id));
+}
+
+void Texture::unbind() {
+    glBindTexture(m_spec.target, 0);
+}
+
+void Texture::loadFromFile() {
+    auto path = m_spec.path;
+
+    // if the file does not exist, load the missing texture
+    if (!std::filesystem::exists(m_spec.path)) {
+        path = ResourceState::get()->getTexturePath("missing.png").string();
+        assert(std::filesystem::exists(path) && "Missing texture not found");
+        KERROR("Texture not found: {}", m_spec.path);
+    }
+
+    i32 width, height, channels;
+    stbi_set_flip_vertically_on_load(true);
+    u8* data = stbi_load(path.c_str(), &width, &height, &channels, 3);
+    if (!data) {
+        KERROR("Failed to load texture: {}", path);
+        stbi_image_free(data);
+
+        // try to load the missing texture
+        path = ResourceState::get()->getTexturePath("missing.png").string();
+        assert(std::filesystem::exists(path) && "Missing texture not found");
+        data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+    }
+
+    glGenTextures(1, &m_id);
+    glBindTexture(m_spec.target, m_id);
+
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_S, m_spec.wrapS);
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_T, m_spec.wrapT);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
+
+    glTexImage2D(m_spec.target, 0, m_spec.internalFOrmat, width, height, 0, m_spec.format, m_spec.type, data);
+    if (m_spec.generateMipmaps)
+        glGenerateMipmap(m_spec.target);
+
+    glBindTexture(m_spec.target, 0);
+    stbi_image_free(data);
+}
+
+void Texture::loadFromData() {
+    glGenTextures(1, &m_id);
+    glBindTexture(m_spec.target, m_id);
+
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_S, m_spec.wrapS);
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_T, m_spec.wrapT);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
+
+    glTexImage2D(m_spec.target, 0, m_spec.internalFOrmat, m_spec.width, m_spec.height, 0, m_spec.format, m_spec.type, m_spec.data);
+
+    if (m_spec.generateMipmaps)
+        glGenerateMipmap(m_spec.target);
+
+    glBindTexture(m_spec.target, 0);
+}

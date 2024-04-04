@@ -1,0 +1,11 @@
+Model Information:
+* title:	Military laptop (2)
+* source:	https://sketchfab.com/3d-models/military-laptop-2-4cf7d92c8c06426287aa3694c70efb2c
+* author:	Nortenko Dmytro (https://sketchfab.com/leondp)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Military laptop (2)" (https://sketchfab.com/3d-models/military-laptop-2-4cf7d92c8c06426287aa3694c70efb2c) by Nortenko Dmytro (https://sketchfab.com/leondp) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

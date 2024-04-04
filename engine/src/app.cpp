@@ -10,6 +10,8 @@
 #include <imgui/backends/imgui_impl_opengl3.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 
+#include "renderer/resources/gl_errors.hpp"
+
 std::unique_ptr<app> g_app;
 
 std::string game_logic::get_current_dll_path() const {
@@ -123,6 +125,16 @@ b8 app::init()
         throw std::exception();
     }
 
+    int flags = 0;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+        std::cout << "Initialized debug layer" << std::endl;
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(glDebugOutput, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    }
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -141,6 +153,10 @@ b8 app::init()
 void app::run()
 {
     init();
+
+    // opengl settings
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     while (!glfwWindowShouldClose(_window))
     {

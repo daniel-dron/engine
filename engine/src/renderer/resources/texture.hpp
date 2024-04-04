@@ -1,0 +1,45 @@
+#pragma once
+
+#include <glad/glad.h>
+#include <memory>
+#include <string>
+
+#include "defines.hpp"
+#include "bindable.hpp"
+
+struct TextureSpecification {
+    GLenum target = GL_TEXTURE_2D;
+    GLenum internalFOrmat = GL_RGBA;
+    GLenum format = GL_RGBA;
+    u32 width = 0;
+    u32 height = 0;
+    GLenum type = GL_UNSIGNED_BYTE;
+    void* data = nullptr;
+    std::string path = "";
+    u32 slot = 0;
+    GLenum wrapS = GL_REPEAT;
+    GLenum wrapT = GL_REPEAT;
+    GLenum minFilter = GL_LINEAR;
+    GLenum magFilter = GL_LINEAR;
+    bool generateMipmaps = true;
+};
+
+class KAPI Texture : public Bindable {
+public:
+    static std::shared_ptr<Texture> create(const TextureSpecification& spec = TextureSpecification()) {
+        return std::make_shared<Texture>(spec);
+    }
+
+    Texture(const TextureSpecification& spec);
+
+    void bind() override;
+    void unbind() override;
+
+private:
+
+    void loadFromFile();
+    void loadFromData();
+
+    TextureSpecification m_spec;
+    std::string m_path;
+};
