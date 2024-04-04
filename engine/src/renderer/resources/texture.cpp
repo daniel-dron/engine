@@ -39,6 +39,7 @@ void Texture::loadFromFile() {
     }
 
     i32 width, height, channels;
+    stbi_set_flip_vertically_on_load(true);
     u8* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
     if (!data) {
         KERROR("Failed to load texture: {}", path);
@@ -58,7 +59,7 @@ void Texture::loadFromFile() {
     glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
     glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
 
-    glTexImage2D(m_spec.target, 0, m_spec.internalFOrmat, width, height, 0, m_spec.format, m_spec.type, data);
+    glTexImage2D(m_spec.target, 0, m_spec.internalFormat, width, height, 0, m_spec.format, m_spec.type, data);
     if (m_spec.generateMipmaps)
         glGenerateMipmap(m_spec.target);
 
@@ -75,7 +76,7 @@ void Texture::loadFromData() {
     glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
     glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
 
-    glTexImage2D(m_spec.target, 0, m_spec.internalFOrmat, m_spec.width, m_spec.height, 0, m_spec.format, m_spec.type, m_spec.data);
+    glTexImage2D(m_spec.target, 0, m_spec.internalFormat, m_spec.width, m_spec.height, 0, m_spec.format, m_spec.type, m_spec.data);
 
     if (m_spec.generateMipmaps)
         glGenerateMipmap(m_spec.target);

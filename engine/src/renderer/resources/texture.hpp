@@ -9,7 +9,7 @@
 
 struct TextureSpecification {
     GLenum target = GL_TEXTURE_2D;
-    GLenum internalFOrmat = GL_RGBA;
+    GLenum internalFormat = GL_RGBA;
     GLenum format = GL_RGBA;
     u32 width = 0;
     u32 height = 0;
@@ -36,7 +36,6 @@ public:
     void unbind() override;
 
 private:
-
     void loadFromFile();
     void loadFromData();
 
