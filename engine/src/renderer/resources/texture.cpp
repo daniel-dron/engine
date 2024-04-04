@@ -39,8 +39,7 @@ void Texture::loadFromFile() {
     }
 
     i32 width, height, channels;
-    stbi_set_flip_vertically_on_load(true);
-    u8* data = stbi_load(path.c_str(), &width, &height, &channels, 3);
+    u8* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
     if (!data) {
         KERROR("Failed to load texture: {}", path);
         stbi_image_free(data);
