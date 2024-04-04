@@ -92,6 +92,9 @@ public:
     static const u64 NS_PER_SECOND = 1'000'000'000;
 
     std::array<key, 348> keys;
+    std::array<key, 8> mouse_keys;
+    vec2 mouse_pos;
+    vec2 mouse_delta;
 private:
     f64 _delta;
     u64 _last_frame; 

@@ -101,7 +101,7 @@ b8 app::init()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     _window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
     if (_window == nullptr) {
@@ -159,21 +159,6 @@ void app::run()
 
         render();
 
-        ImGui::ShowDemoWindow();
-
-        {
-            ImGui::Begin("dll");
-            if (ImGui::Button("Reload DLL")) {
-                if (_logic) {
-                    _logic->load_game("testbedd.dll");
-
-                    // call on_init after loading new dll
-                    _logic->on_init();
-                }
-            }
-            ImGui::End();
-        }
-
         // end frame
         {
             ImGui::Render();
@@ -187,6 +172,9 @@ void app::run()
             glfwSwapBuffers(glfwGetCurrentContext());
         }
         glfwPollEvents();
+
+        // clear just-pressed keys
+        this->clear();
     }
 
     _logic->on_shutdown();
@@ -202,14 +190,37 @@ b8 app::update()
     // call game logic update
     _logic->on_update();
 
-    // clear just-pressed keys
-    this->clear();
+    if (keys[GLFW_KEY_ESCAPE].down) {
+        glfwSetWindowShouldClose(_window, true);
+    }
 
     return true;
 }
 
 b8 app::render()
 {
+    ImGui::ShowDemoWindow();
+
+    {
+        ImGui::Begin("dll");
+        if (ImGui::Button("Reload DLL")) {
+            if (_logic) {
+                _logic->load_game("testbedd.dll");
+
+                // call on_init after loading new dll
+                _logic->on_init();
+            }
+        }
+        ImGui::End();
+    }
+
+    {
+        ImGui::Begin("DEBUG");
+        ImGui::Text("FPS: %.1f", 1.0f / _delta);
+        ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
+        ImGui::End();
+    }
+
     _logic->on_render();
 
     return true;
@@ -235,41 +246,54 @@ void app::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
     g_app->_logic->on_resize(width, height);
 }
 
-void app::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos) {
+void app::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
+{
+    g_app->mouse_delta.x += xpos - g_app->mouse_pos.x;
+    g_app->mouse_delta.y += g_app->mouse_pos.y - ypos;
+
+    g_app->mouse_pos.x = xpos;
+    g_app->mouse_pos.y = ypos;
 }
 
 void app::_mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods)
 {
+    if (action == GLFW_PRESS) {
+        g_app->mouse_keys[button].down = true;
+        g_app->mouse_keys[button].pressed = true;
+    }
+    else if (action == GLFW_RELEASE) {
+        g_app->mouse_keys[button].down = false;
+        g_app->mouse_keys[button].released = true;
+    }
 }
 
 void app::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action, i32 mods)
 {
-    switch (key) {
-    case GLFW_KEY_ESCAPE:
-        if (action == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
-        break;
-    case GLFW_KEY_SPACE:
-        if (action == GLFW_PRESS) {
-            g_app->keys[key].down = true;
-            g_app->keys[key].pressed = true;
-        } else if (action == GLFW_RELEASE) {
-            g_app->keys[key].down = false;
-            g_app->keys[key].released = true;
-        }
-        break;
-   case GLFW_KEY_V:
-        break;
-    default:
-        break;
-   }
+    if (action == GLFW_PRESS) {
+        g_app->keys[key].down = true;
+        g_app->keys[key].pressed = true;
+    }
+    else if (action == GLFW_RELEASE) {
+        g_app->keys[key].down = false;
+        g_app->keys[key].released = true;
+    }
 }
 
 void app::clear()
 {
+    // clear keyboard keys
     for (auto& key : keys) {
         key.pressed = false;
         key.released = false;
     }
+
+    // clear mouse keys
+    for (auto& key : mouse_keys) {
+        key.pressed = false;
+        key.released = false;
+    }
+
+    // clear mouse delta
+    mouse_delta.x = 0;
+    mouse_delta.y = 0;
 }

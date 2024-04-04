@@ -64,5 +64,14 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define GLCALL(x) x;
 #endif
 
+typedef struct ivec2s_ {
+    u32 x;
+    u32 y;
+} ivec2;
+
+typedef struct vec2s_ {
+    f64 x = 0;
+    f64 y = 0;
+} vec2;
 
 #define KAPI __declspec(dllexport)
