@@ -6,8 +6,12 @@
 #include <memory>
 #include <string>
 #include <array>
+#include <glm/glm/glm.hpp>
+#include <mutex>
+#include "camera.hpp"
 
 struct GLFWwindow;
+class UniformBuffer;
 
 struct app_desc {
     i32 pos_x;
@@ -98,6 +102,18 @@ public:
 private:
     f64 _delta;
     u64 _last_frame; 
+
+    // initialize camera matrices
+    struct Matrices {
+        glm::mat4 projection;
+        glm::mat4 view;
+    };
+    std::shared_ptr<Matrices> _camera_matrices;
+    std::shared_ptr<UniformBuffer> _matrices;
+    std::shared_ptr<Camera> m_camera;
+
+    std::once_flag m_mouse_init;
+    bool m_mouse_locked = false;
     
     // clear keys
     void clear();

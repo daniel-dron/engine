@@ -9,8 +9,12 @@
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
 #include <imgui/backends/imgui_impl_glfw.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/geometric.hpp>
 
 #include "renderer/resources/gl_errors.hpp"
+#include "renderer/resources/buffer.hpp"
 
 std::unique_ptr<app> g_app;
 
@@ -145,6 +149,18 @@ b8 app::init()
     ImGui_ImplGlfw_InitForOpenGL(_window, true);
     ImGui_ImplOpenGL3_Init("#version 430");
 
+    // create camera
+    m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
+    m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
+
+    // initialize camera matrices and uniform buffer
+    _camera_matrices = std::make_shared<Matrices>();
+    UniformBufferSpecification spec = {};
+    spec.index = 0;
+    spec.size = sizeof(Matrices);
+    spec.usage = GL_DYNAMIC_DRAW;
+    _matrices = std::make_shared<UniformBuffer>(spec);
+
     return _logic->on_init();
 
     return true;
@@ -175,6 +191,9 @@ void app::run()
 
         render();
 
+        // clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
+        this->clear();
+
         // end frame
         {
             ImGui::Render();
@@ -188,9 +207,6 @@ void app::run()
             glfwSwapBuffers(glfwGetCurrentContext());
         }
         glfwPollEvents();
-
-        // clear just-pressed keys
-        this->clear();
     }
 
     _logic->on_shutdown();
@@ -202,6 +218,35 @@ b8 app::update()
     const auto now = this->now();
     _delta = float(now - _last_frame) / NS_PER_SECOND;
     _last_frame = now;
+
+    // update camera
+    Camera::Direction direction = Camera::Direction::NONE;
+    if (keys[GLFW_KEY_W].down)
+        m_camera->move(Camera::Direction::FORWARD, (f32)_delta);
+    if (keys[GLFW_KEY_S].down)
+        m_camera->move(Camera::Direction::BACKWARD, (f32)_delta);
+    if (keys[GLFW_KEY_A].down)
+        m_camera->move(Camera::Direction::LEFT, (f32)_delta);
+    if (keys[GLFW_KEY_D].down)
+        m_camera->move(Camera::Direction::RIGHT, (f32)_delta);
+    if (keys[GLFW_KEY_SPACE].down)
+        m_camera->move(Camera::Direction::UP, (f32)_delta);
+    if (keys[GLFW_KEY_LEFT_SHIFT].down)
+        m_camera->move(Camera::Direction::DOWN, (f32)_delta);
+
+    m_camera->rotate((f32)mouse_delta.x, (f32)mouse_delta.y, (f32)_delta);
+
+    // camera lock and unlock
+    if (keys[GLFW_KEY_LEFT_CONTROL].pressed) {
+        m_mouse_locked = !m_mouse_locked;
+        if (m_mouse_locked) glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        else glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+    // update matrices
+    _camera_matrices->projection = m_camera->get_projection_matrix();
+    _camera_matrices->view = m_camera->get_view_matrix();
+    _matrices->update(_camera_matrices.get(), sizeof(Matrices));
 
     // call game logic update
     _logic->on_update();
@@ -264,8 +309,15 @@ void app::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
 
 void app::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
 {
-    g_app->mouse_delta.x += xpos - g_app->mouse_pos.x;
-    g_app->mouse_delta.y += g_app->mouse_pos.y - ypos;
+    // initialize mouse position
+    // this is done only once to avoid the mouse jumping to the center of the screen
+    std::call_once(g_app->m_mouse_init, [&]() {
+        g_app->mouse_pos.x = xpos;
+        g_app->mouse_pos.y = ypos;
+    });
+
+    g_app->mouse_delta.x = xpos - g_app->mouse_pos.x;
+    g_app->mouse_delta.y = g_app->mouse_pos.y - ypos;
 
     g_app->mouse_pos.x = xpos;
     g_app->mouse_pos.y = ypos;

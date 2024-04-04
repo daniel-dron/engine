@@ -70,7 +70,7 @@ extern "C" KAPI b8 on_init() {
 
     TextureSpecification texture_spec = {};
     texture_spec.path = get_texture_path("debug2.jpeg");
-    texture_spec.internalFOrmat = GL_RGB;
+    texture_spec.internalFormat = GL_RGB;
     texture_spec.format = GL_RGB;
     texture = Texture::create(texture_spec);
 
