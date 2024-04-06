@@ -18,13 +18,20 @@ layout (std140, binding = 0) uniform Matrices {
     vec3 eyePos;
 };
 
-uniform sampler2D albedoMap;
-uniform sampler2D normalMap;
-uniform sampler2D metallicRoughnessMap;
+layout(binding = 0) uniform sampler2D albedoMap;
+layout(binding = 1) uniform sampler2D normalMap;
+layout(binding = 2) uniform sampler2D metallicRoughnessMap;
 
 // lights
-uniform vec3 lightPositions[4];
-uniform vec3 lightColors[4];
+uniform vec3 lightPositions[4] = {
+    vec3(7.7f, 2.0f, 0.5f), vec3(7.7f, 5.0f, 0.5f),
+    vec3(-5.3f, 3.5f, 0.5f), vec3(4.0f, -1.0f, -2.5f)
+};
+
+uniform vec3 lightColors[4] = {
+	vec3(550.0f, 550.0f, 550.0f), vec3(150.0f, 150.0f, 150.0f),
+	vec3(550.0f, 550.0f, 550.0f), vec3(150.0f, 150.0f, 150.0f)        
+};
 
 float PI = 3.14159265359f;
 
@@ -123,14 +130,11 @@ void main() {
     vec3 color = ambient + Lo;
 
     // HDR tonemapping and gamma correction
-    // color = color / (color + vec3(1.0f));
-    // color = pow(color, vec3(1.0f/2.2f));
+    color = color / (color + vec3(1.0f));
+    color = pow(color, vec3(1.0f/2.2f));
 
     // TODO: remove lol
-    albedo = albedo / (albedo + vec3(1.0f));
-    albedo = pow(albedo, vec3(1.0f/2.2f));
-
-    FragColor = vec4(albedo, 1.0f);//color, 1.0f);
+    FragColor = vec4(color, 1.0f);
 
     float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
     if (brightness > 1.0f)

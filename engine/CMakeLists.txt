@@ -12,7 +12,7 @@ add_executable(engine
     src/renderer/mesh.cpp
     src/renderer/model.cpp
     src/glad/glad.c
-)
+    src/utils.cpp)
 set_property(TARGET engine PROPERTY ENABLE_EXPORTS 1)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)

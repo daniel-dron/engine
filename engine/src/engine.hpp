@@ -110,7 +110,7 @@ private:
     struct Matrices {
         glm::mat4 view;
         glm::mat4 projection;
-        glm::vec3 position;
+        glm::vec3 eye_position;
     };
     std::shared_ptr<Matrices> _camera_matrices;
     std::shared_ptr<UniformBuffer> _matrices;

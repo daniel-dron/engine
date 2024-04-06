@@ -22,6 +22,7 @@
 #include "renderer/mesh.hpp"
 #include "renderer/model.hpp"
 #include "renderer/resources/buffer.hpp"
+#include <utils.hpp>
 
 std::unique_ptr<Engine> g_engine;
 
@@ -173,6 +174,7 @@ b8 Engine::init()
 
     m_pbr = ShaderProgram::create("pbr.vert", "pbr.frag");
     m_model = Model::create("laptop");
+    m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(10.0f));
 
     return _logic->on_init();
 
@@ -262,6 +264,7 @@ b8 Engine::update()
     // update matrices
     _camera_matrices->projection = m_camera->get_projection_matrix();
     _camera_matrices->view = m_camera->get_view_matrix();
+    _camera_matrices->eye_position = m_camera->get_position();
     _matrices->update(_camera_matrices.get(), sizeof(Matrices));
 
     // call game logic update

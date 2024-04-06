@@ -16,6 +16,7 @@ public:
     void rotate(f32 x_offset, f32 y_offset, f32 delta_time);
 
     void set_position(const glm::vec3& position);
+    glm::vec3 get_position() const;
 
     glm::mat4 get_view_matrix() const;
     glm::mat4 get_projection_matrix() const;
