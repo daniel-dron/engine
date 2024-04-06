@@ -6,7 +6,7 @@ layout (location = 2) in vec2 texCoord;
 layout (location = 3) in vec3 tanget;
 layout (location = 4) in vec3 bitanget;
 
-uniform mat4 model;
+uniform mat4 model = mat4(1.0f);
 layout (std140, binding = 0) uniform Matrices {
     mat4 view;
     mat4 projection;

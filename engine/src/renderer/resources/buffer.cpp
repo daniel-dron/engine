@@ -5,6 +5,7 @@ GlBuffer::GlBuffer(const BufferSpecification& spec)
     glGenBuffers(1, &m_id);
     glBindBuffer(spec.type, m_id);
     glBufferData(spec.type, spec.element_size * spec.count, spec.data, spec.usage);
+    glBindBuffer(spec.type, 0);
 }
 
 GlBuffer::~GlBuffer() {

@@ -9,9 +9,12 @@
 #include <glm/glm/glm.hpp>
 #include <mutex>
 #include "camera.hpp"
+#include "renderer/renderer.hpp"
 
+class Mesh;
 struct GLFWwindow;
 class UniformBuffer;
+class Model;
 
 struct app_desc {
     i32 pos_x;
@@ -79,9 +82,9 @@ struct key {
  * 
  * This struct holds the description and logic of an application.
  */
-struct app {
+struct Engine {
 public:
-    static std::unique_ptr<app> create(std::unique_ptr<app_desc> desc);
+    static std::unique_ptr<Engine> create(std::unique_ptr<app_desc> desc);
 
     void add_logic(const std::string &dll_name);
     b8 init();
@@ -105,12 +108,17 @@ private:
 
     // initialize camera matrices
     struct Matrices {
-        glm::mat4 projection;
         glm::mat4 view;
+        glm::mat4 projection;
+        glm::vec3 position;
     };
     std::shared_ptr<Matrices> _camera_matrices;
     std::shared_ptr<UniformBuffer> _matrices;
     std::shared_ptr<Camera> m_camera;
+
+    std::shared_ptr<Model> m_model;
+    std::shared_ptr<ShaderProgram> m_pbr;
+    std::unique_ptr<Renderer> m_renderer;
 
     std::once_flag m_mouse_init;
     bool m_mouse_locked = false;
@@ -128,4 +136,4 @@ private:
     std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
 };
 
-extern std::unique_ptr<app> g_app;
+extern std::unique_ptr<Engine> g_engine;

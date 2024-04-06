@@ -1,5 +1,10 @@
 #include "vertex_array.hpp"
 
+#include <iostream>
+#include <format>
+#include "renderer/resources/gl_errors.hpp"
+#include <defines.hpp>
+
 VertexArray::VertexArray(const VertexArraySpecification& spec)
 {
     glGenVertexArrays(1, &m_id);
@@ -13,12 +18,15 @@ VertexArray::VertexArray(const VertexArraySpecification& spec)
     u32 total_size = spec.layout->get_size();
 
     for (const auto& element : spec.layout->get_elements()) {
-        glVertexAttribPointer(idx, element.count, element.type, element.normalized, total_size, (void*)offset);
-        glEnableVertexAttribArray(idx);
+        GLCALL(glVertexAttribPointer(idx, element.count, element.type, element.normalized, total_size, (void*)offset));
+        GLCALL(glEnableVertexAttribArray(idx));
 
         offset += element.count * VertexElement::size_of(element.type);
         idx++;
     }
+
+    // unbind to not mess up gpu state
+    glBindVertexArray(0);
 }
 
 VertexArray::~VertexArray()

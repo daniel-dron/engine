@@ -1,4 +1,4 @@
-#include "app.hpp"
+#include "engine.hpp"
 
 #include "defines.hpp"
 #include <renderer/resources/resources.hpp>
@@ -13,10 +13,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/geometric.hpp>
 
+#include <assimp/Importer.hpp>
+#include <assimp/material.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include "renderer/resources/gl_errors.hpp"
+#include "renderer/mesh.hpp"
+#include "renderer/model.hpp"
 #include "renderer/resources/buffer.hpp"
 
-std::unique_ptr<app> g_app;
+std::unique_ptr<Engine> g_engine;
 
 std::string game_logic::get_current_dll_path() const {
     return (ResourceState::get()->_workingDirectory / std::format("game{}.dll", current_dll_id)).string();
@@ -86,20 +93,20 @@ void game_logic::load_game(const std::string& dll_name) {
     this->on_shutdown = on_shutdown != nullptr ? reinterpret_cast<void(*)(void)>(on_shutdown) : default_on_shutdown;
 }
 
-std::unique_ptr<app> app::create(std::unique_ptr<app_desc> desc)
+std::unique_ptr<Engine> Engine::create(std::unique_ptr<app_desc> desc)
 {
-    auto _app = std::make_unique<app>();
+    auto _app = std::make_unique<Engine>();
     _app->_desc = std::move(desc);
     return _app;
 }
 
-void app::add_logic(const std::string& dll_name)
+void Engine::add_logic(const std::string& dll_name)
 {
     _logic = std::make_unique<game_logic>();
     _logic->load_game("testbedd.dll");
 }
 
-b8 app::init()
+b8 Engine::init()
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -149,6 +156,9 @@ b8 app::init()
     ImGui_ImplGlfw_InitForOpenGL(_window, true);
     ImGui_ImplOpenGL3_Init("#version 430");
 
+    // create renderer
+    m_renderer = Renderer::create();
+
     // create camera
     m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
     m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
@@ -161,18 +171,24 @@ b8 app::init()
     spec.usage = GL_DYNAMIC_DRAW;
     _matrices = std::make_shared<UniformBuffer>(spec);
 
+    m_pbr = ShaderProgram::create("pbr.vert", "pbr.frag");
+    m_model = Model::create("laptop");
+
     return _logic->on_init();
 
     return true;
 }
 
-void app::run()
+void Engine::run()
 {
     init();
 
     // opengl settings
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
 
     while (!glfwWindowShouldClose(_window))
     {
@@ -182,7 +198,7 @@ void app::run()
 
         {
             glClearColor(0.4f, 0.0f, 0.2f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -212,7 +228,7 @@ void app::run()
     _logic->on_shutdown();
 }
 
-b8 app::update()
+b8 Engine::update()
 {
     // calculate delta time
     const auto now = this->now();
@@ -258,7 +274,7 @@ b8 app::update()
     return true;
 }
 
-b8 app::render()
+b8 Engine::render()
 {
     ImGui::ShowDemoWindow();
 
@@ -275,6 +291,7 @@ b8 app::render()
         ImGui::End();
     }
 
+
     {
         ImGui::Begin("DEBUG");
         ImGui::Text("FPS: %.1f", 1.0f / _delta);
@@ -283,71 +300,72 @@ b8 app::render()
     }
 
     _logic->on_render();
+    m_model->render(m_pbr);
 
     return true;
 }
 
-u64 app::now()
+u64 Engine::now()
 {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now().time_since_epoch())
         .count();
 }
 
-f64 app::get_delta() const
+f64 Engine::get_delta() const
 {
     return _delta;
 }
 
-void app::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
+void Engine::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
 {
-    g_app->_desc->width = width;
-    g_app->_desc->height = height;
+    g_engine->_desc->width = width;
+    g_engine->_desc->height = height;
     glViewport(0, 0, width, height);
-    g_app->_logic->on_resize(width, height);
+    g_engine->_logic->on_resize(width, height);
 }
 
-void app::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
+void Engine::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
 {
     // initialize mouse position
     // this is done only once to avoid the mouse jumping to the center of the screen
-    std::call_once(g_app->m_mouse_init, [&]() {
-        g_app->mouse_pos.x = xpos;
-        g_app->mouse_pos.y = ypos;
-    });
+    std::call_once(g_engine->m_mouse_init, [&]() {
+        g_engine->mouse_pos.x = xpos;
+        g_engine->mouse_pos.y = ypos;
+        });
 
-    g_app->mouse_delta.x = xpos - g_app->mouse_pos.x;
-    g_app->mouse_delta.y = g_app->mouse_pos.y - ypos;
+    g_engine->mouse_delta.x = xpos - g_engine->mouse_pos.x;
+    g_engine->mouse_delta.y = g_engine->mouse_pos.y - ypos;
 
-    g_app->mouse_pos.x = xpos;
-    g_app->mouse_pos.y = ypos;
+    g_engine->mouse_pos.x = xpos;
+    g_engine->mouse_pos.y = ypos;
 }
 
-void app::_mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods)
+void Engine::_mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods)
 {
     if (action == GLFW_PRESS) {
-        g_app->mouse_keys[button].down = true;
-        g_app->mouse_keys[button].pressed = true;
+        g_engine->mouse_keys[button].down = true;
+        g_engine->mouse_keys[button].pressed = true;
     }
     else if (action == GLFW_RELEASE) {
-        g_app->mouse_keys[button].down = false;
-        g_app->mouse_keys[button].released = true;
+        g_engine->mouse_keys[button].down = false;
+        g_engine->mouse_keys[button].released = true;
     }
 }
 
-void app::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action, i32 mods)
+void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action, i32 mods)
 {
     if (action == GLFW_PRESS) {
-        g_app->keys[key].down = true;
-        g_app->keys[key].pressed = true;
+        g_engine->keys[key].down = true;
+        g_engine->keys[key].pressed = true;
     }
     else if (action == GLFW_RELEASE) {
-        g_app->keys[key].down = false;
-        g_app->keys[key].released = true;
+        g_engine->keys[key].down = false;
+        g_engine->keys[key].released = true;
     }
 }
 
-void app::clear()
+void Engine::clear()
 {
     // clear keyboard keys
     for (auto& key : keys) {

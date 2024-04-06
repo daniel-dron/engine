@@ -113,7 +113,7 @@ void ShaderProgram::set_vec2(const std::string &name, float *value) const {
     GLCALL(glUniform2f(loc, value[0], value[1]));
 }
 
-void ShaderProgram::set_mat4(const std::string &name, float *value) const {
+void ShaderProgram::set_mat4(const std::string &name, const float *value) const {
     const auto loc = GLCALL(glGetUniformLocation(m_id, name.c_str()));
     GLCALL(glUniformMatrix4fv(loc, 1, GL_FALSE, value));
 }

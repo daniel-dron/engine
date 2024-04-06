@@ -1,6 +1,6 @@
 add_executable(engine
     src/entry.cpp
-    src/app.cpp
+    src/engine.cpp
     src/renderer/resources/buffer.cpp
     src/renderer/resources/vertex_layout.cpp
     src/renderer/resources/vertex_array.cpp
@@ -9,6 +9,8 @@ add_executable(engine
     src/renderer/resources/texture.cpp
     src/camera.cpp
     src/renderer/renderer.cpp
+    src/renderer/mesh.cpp
+    src/renderer/model.cpp
     src/glad/glad.c
 )
 set_property(TARGET engine PROPERTY ENABLE_EXPORTS 1)

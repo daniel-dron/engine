@@ -126,7 +126,11 @@ void main() {
     // color = color / (color + vec3(1.0f));
     // color = pow(color, vec3(1.0f/2.2f));
 
-    FragColor = vec4(color, 1.0f);
+    // TODO: remove lol
+    albedo = albedo / (albedo + vec3(1.0f));
+    albedo = pow(albedo, vec3(1.0f/2.2f));
+
+    FragColor = vec4(albedo, 1.0f);//color, 1.0f);
 
     float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
     if (brightness > 1.0f)

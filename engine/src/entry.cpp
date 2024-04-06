@@ -8,7 +8,7 @@
 #include "renderer/resources/resources.hpp"
 #include "entry.h"
 #include "renderer/resources/gl_errors.hpp"
-#include "app.hpp"
+#include "engine.hpp"
 
 void render_elements(u32 count) {
     GLCALL(glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr));
@@ -28,10 +28,10 @@ int main(int argc, char* argv[]) {
     desc->width = 1920;
     desc->height = 1080;
     desc->window_name = "default window name";
-    g_app = app::create(std::move(desc));
+    g_engine = Engine::create(std::move(desc));
 
-    g_app->add_logic("testbedd.dll");
-    g_app->run();
+    g_engine->add_logic("testbedd.dll");
+    g_engine->run();
 
     return 1;
 }
