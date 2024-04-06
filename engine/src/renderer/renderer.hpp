@@ -10,13 +10,6 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
 
-struct DrawCall {
-    std::shared_ptr<VertexArray> vao;
-    std::shared_ptr<GlBuffer> ibo;
-    glm::mat4 transform;
-    std::shared_ptr<ShaderProgram> shader;
-};
-
 class Renderer {
 public:
     static std::unique_ptr<Renderer> create() {
@@ -25,7 +18,18 @@ public:
 
     Renderer();
 
+    void update_view(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& eye_pos);
+
+    std::shared_ptr<ShaderProgram> get_shader(const std::string& name);
+
 private:
-    std::shared_ptr<ShaderProgram> m_pbr;
-    std::vector<DrawCall> m_draw_calls;
+    std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> m_shaders;
+
+    struct ViewMatrices {
+        glm::mat4 view;
+        glm::mat4 projection;
+        glm::vec3 eye_position;
+    };
+    std::shared_ptr<ViewMatrices> m_view_matrices;
+    std::shared_ptr<UniformBuffer> m_view_ub;
 };

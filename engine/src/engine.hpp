@@ -106,18 +106,9 @@ private:
     f64 _delta;
     u64 _last_frame; 
 
-    // initialize camera matrices
-    struct Matrices {
-        glm::mat4 view;
-        glm::mat4 projection;
-        glm::vec3 eye_position;
-    };
-    std::shared_ptr<Matrices> _camera_matrices;
-    std::shared_ptr<UniformBuffer> _matrices;
     std::shared_ptr<Camera> m_camera;
 
     std::shared_ptr<Model> m_model;
-    std::shared_ptr<ShaderProgram> m_pbr;
     std::unique_ptr<Renderer> m_renderer;
 
     std::once_flag m_mouse_init;

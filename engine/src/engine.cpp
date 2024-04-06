@@ -164,15 +164,7 @@ b8 Engine::init()
     m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
     m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
 
-    // initialize camera matrices and uniform buffer
-    _camera_matrices = std::make_shared<Matrices>();
-    UniformBufferSpecification spec = {};
-    spec.index = 0;
-    spec.size = sizeof(Matrices);
-    spec.usage = GL_DYNAMIC_DRAW;
-    _matrices = std::make_shared<UniformBuffer>(spec);
-
-    m_pbr = ShaderProgram::create("pbr.vert", "pbr.frag");
+    // model
     m_model = Model::create("laptop");
     m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(10.0f));
 
@@ -262,10 +254,11 @@ b8 Engine::update()
     }
 
     // update matrices
-    _camera_matrices->projection = m_camera->get_projection_matrix();
-    _camera_matrices->view = m_camera->get_view_matrix();
-    _camera_matrices->eye_position = m_camera->get_position();
-    _matrices->update(_camera_matrices.get(), sizeof(Matrices));
+    m_renderer->update_view(
+        m_camera->get_view_matrix(),
+        m_camera->get_projection_matrix(),
+        m_camera->get_position()
+    );
 
     // call game logic update
     _logic->on_update();
@@ -303,7 +296,7 @@ b8 Engine::render()
     }
 
     _logic->on_render();
-    m_model->render(m_pbr);
+    m_model->render(m_renderer->get_shader("pbr"));
 
     return true;
 }
