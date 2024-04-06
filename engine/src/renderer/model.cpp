@@ -16,7 +16,7 @@ void Node::add_child(std::shared_ptr<Node> child)
 
 void Node::render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& parent_transform) const
 {
-	const auto transform = m_transform * parent_transform;
+	const auto transform = parent_transform * m_transform;
 
 	for (const auto& mesh : m_meshes) {
 		mesh->draw(shader, transform);
@@ -44,6 +44,13 @@ Model::Model(const std::string& name) {
 void Model::render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& transform) const
 {
 	m_root->render(shader, transform);
+}
+
+void Model::render_menu_debug() const
+{
+	for (const auto& mesh : m_meshes) {
+		mesh->render_menu_debug();
+	}
 }
 
 std::shared_ptr<Node> Model::get_root() const

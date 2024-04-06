@@ -97,6 +97,8 @@ public:
 
     u64 now();
     f64 get_delta() const;
+    const std::unique_ptr<Renderer>& get_renderer() const;
+
     static const u64 NS_PER_SECOND = 1'000'000'000;
 
     std::array<key, 348> keys;

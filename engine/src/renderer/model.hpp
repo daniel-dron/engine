@@ -29,6 +29,7 @@ public:
 	explicit Model(const std::string& name);
 
 	void render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& transform = glm::mat4(1.0f)) const;
+	void render_menu_debug() const;
 
 	std::shared_ptr<Node> get_root() const;
 

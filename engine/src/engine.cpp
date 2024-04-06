@@ -27,381 +27,399 @@
 std::unique_ptr<Engine> g_engine;
 
 std::string game_logic::get_current_dll_path() const {
-    return (ResourceState::get()->_workingDirectory / std::format("game{}.dll", current_dll_id)).string();
+	return (ResourceState::get()->_workingDirectory / std::format("game{}.dll", current_dll_id)).string();
 }
 
 void game_logic::load_game(const std::string& dll_name) {
-    // check if dll exists
-    auto dll_path = ResourceState::get()->_workingDirectory / "build" / "testbed" / dll_name;
-    KDEBUG("dll_path: {}", dll_path.string());
-    assert(std::filesystem::exists(dll_path) && "DLL does not exist");
+	// check if dll exists
+	auto dll_path = ResourceState::get()->_workingDirectory / "build" / "testbed" / dll_name;
+	KDEBUG("dll_path: {}", dll_path.string());
+	assert(std::filesystem::exists(dll_path) && "DLL does not exist");
 
-    // unload the current dll
-    if (this->_dll != nullptr) {
-        KDEBUG("Unloading current dll");
-        this->on_shutdown();
-        FreeLibrary((HINSTANCE)this->_dll);
-    }
+	// unload the current dll
+	if (this->_dll != nullptr) {
+		KDEBUG("Unloading current dll");
+		this->on_shutdown();
+		FreeLibrary((HINSTANCE)this->_dll);
+	}
 
-    // delete dll
-    std::filesystem::path current_dll_path = this->get_current_dll_path();
-    if (std::filesystem::exists(current_dll_path)) {
-        KDEBUG("Deleting current dll");
-        std::filesystem::remove(current_dll_path);
-    }
+	// delete dll
+	std::filesystem::path current_dll_path = this->get_current_dll_path();
+	if (std::filesystem::exists(current_dll_path)) {
+		KDEBUG("Deleting current dll");
+		std::filesystem::remove(current_dll_path);
+	}
 
-    // create a copy of the dll with the name of the current dll (incremental)
-    current_dll_path = ResourceState::get()->_workingDirectory / std::format("game{}.dll", ++current_dll_id);
-    std::filesystem::copy(dll_path, current_dll_path, std::filesystem::copy_options::overwrite_existing);
-    KDEBUG("Copied dll to: {}", current_dll_path.string());
+	// create a copy of the dll with the name of the current dll (incremental)
+	current_dll_path = ResourceState::get()->_workingDirectory / std::format("game{}.dll", ++current_dll_id);
+	std::filesystem::copy(dll_path, current_dll_path, std::filesystem::copy_options::overwrite_existing);
+	KDEBUG("Copied dll to: {}", current_dll_path.string());
 
-    // load the dll
-    HINSTANCE _dll = LoadLibrary(current_dll_path.string().c_str());
-    KDEBUG("Loaded dll: {}", current_dll_path.string());
-    this->_dll = _dll;
+	// load the dll
+	HINSTANCE _dll = LoadLibrary(current_dll_path.string().c_str());
+	KDEBUG("Loaded dll: {}", current_dll_path.string());
+	this->_dll = _dll;
 
-    auto default_on_init = []() -> b8 {
-        std::cout << "default_on_init()" << std::endl;
-        return true;
-        };
-    auto on_init = GetProcAddress(_dll, "on_init");
-    this->on_init = on_init != nullptr ? reinterpret_cast<b8(*)(void)>(on_init) : default_on_init;
+	auto default_on_init = []() -> b8 {
+		std::cout << "default_on_init()" << std::endl;
+		return true;
+		};
+	auto on_init = GetProcAddress(_dll, "on_init");
+	this->on_init = on_init != nullptr ? reinterpret_cast<b8(*)(void)>(on_init) : default_on_init;
 
-    auto default_on_update = []() -> b8 {
-        std::cout << "default_on_update()" << std::endl;
-        return true;
-        };
-    auto on_update = GetProcAddress(_dll, "on_update");
-    this->on_update = on_update != nullptr ? reinterpret_cast<b8(*)(void)>(on_update) : default_on_update;
+	auto default_on_update = []() -> b8 {
+		std::cout << "default_on_update()" << std::endl;
+		return true;
+		};
+	auto on_update = GetProcAddress(_dll, "on_update");
+	this->on_update = on_update != nullptr ? reinterpret_cast<b8(*)(void)>(on_update) : default_on_update;
 
-    auto default_on_render = []() -> b8 {
-        std::cout << "default_on_render()" << std::endl;
-        return true;
-        };
-    auto on_render = GetProcAddress(_dll, "on_render");
-    this->on_render = on_render != nullptr ? reinterpret_cast<b8(*)(void)>(on_render) : default_on_render;
+	auto default_on_render = []() -> b8 {
+		std::cout << "default_on_render()" << std::endl;
+		return true;
+		};
+	auto on_render = GetProcAddress(_dll, "on_render");
+	this->on_render = on_render != nullptr ? reinterpret_cast<b8(*)(void)>(on_render) : default_on_render;
 
-    auto default_on_resize = [](u32 width, u32 height) {
-        std::cout << "default_on_resize()" << std::endl;
-        };
-    auto on_resize = GetProcAddress(_dll, "on_resize");
-    this->on_resize = on_resize != nullptr ? reinterpret_cast<void(*)(u32, u32)>(on_resize) : default_on_resize;
+	auto default_on_resize = [](u32 width, u32 height) {
+		std::cout << "default_on_resize()" << std::endl;
+		};
+	auto on_resize = GetProcAddress(_dll, "on_resize");
+	this->on_resize = on_resize != nullptr ? reinterpret_cast<void(*)(u32, u32)>(on_resize) : default_on_resize;
 
-    auto default_on_shutdown = []() {
-        std::cout << "default_on_shutdown()" << std::endl;
-        };
-    auto on_shutdown = GetProcAddress(_dll, "on_shutdown");
-    this->on_shutdown = on_shutdown != nullptr ? reinterpret_cast<void(*)(void)>(on_shutdown) : default_on_shutdown;
+	auto default_on_shutdown = []() {
+		std::cout << "default_on_shutdown()" << std::endl;
+		};
+	auto on_shutdown = GetProcAddress(_dll, "on_shutdown");
+	this->on_shutdown = on_shutdown != nullptr ? reinterpret_cast<void(*)(void)>(on_shutdown) : default_on_shutdown;
 }
 
 std::unique_ptr<Engine> Engine::create(std::unique_ptr<app_desc> desc)
 {
-    auto _app = std::make_unique<Engine>();
-    _app->_desc = std::move(desc);
-    return _app;
+	auto _app = std::make_unique<Engine>();
+	_app->_desc = std::move(desc);
+	return _app;
 }
 
 void Engine::add_logic(const std::string& dll_name)
 {
-    _logic = std::make_unique<game_logic>();
-    _logic->load_game("testbedd.dll");
+	_logic = std::make_unique<game_logic>();
+	_logic->load_game("testbedd.dll");
 }
 
 b8 Engine::init()
 {
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwSwapInterval(1);
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwSwapInterval(1);
 
-    _window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
-    if (_window == nullptr) {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        throw std::exception();
-    }
+	_window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
+	if (_window == nullptr) {
+		std::cout << "Failed to create GLFW window" << std::endl;
+		glfwTerminate();
+		throw std::exception();
+	}
 
-    glfwMakeContextCurrent(_window);
+	glfwMakeContextCurrent(_window);
 
-    // set callbacks
-    glfwSetWindowSizeCallback(_window, _window_size_callback);
-    glfwSetCursorPosCallback(_window, _cursor_callback);
-    glfwSetMouseButtonCallback(_window, _mouse_callback);
-    glfwSetKeyCallback(_window, _key_callback);
+	// set callbacks
+	glfwSetWindowSizeCallback(_window, _window_size_callback);
+	glfwSetCursorPosCallback(_window, _cursor_callback);
+	glfwSetMouseButtonCallback(_window, _mouse_callback);
+	glfwSetKeyCallback(_window, _key_callback);
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        throw std::exception();
-    }
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		throw std::exception();
+	}
 
-    int flags = 0;
-    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
-    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
-        std::cout << "Initialized debug layer" << std::endl;
-        glEnable(GL_DEBUG_OUTPUT);
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(glDebugOutput, nullptr);
-        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
-    }
+	int flags = 0;
+	glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+	if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+		std::cout << "Initialized debug layer" << std::endl;
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(glDebugOutput, nullptr);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	}
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-    ImGui_ImplGlfw_InitForOpenGL(_window, true);
-    ImGui_ImplOpenGL3_Init("#version 430");
+	ImGui_ImplGlfw_InitForOpenGL(_window, true);
+	ImGui_ImplOpenGL3_Init("#version 430");
 
-    // create renderer
-    m_renderer = Renderer::create();
+	// create renderer
+	m_renderer = Renderer::create();
 
-    // create camera
-    m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
-    m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
+	// create camera
+	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
+	m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
 
-    // create screen framebuffer
-    {
-        TextureSpecification tspec = {};
-        tspec.internalFormat = GL_RGBA16F;
-        tspec.width = 1920;
-        tspec.height = 1080;
-        auto texture = Texture::create(tspec);
+	// create screen framebuffer
+	{
+		TextureSpecification tspec = {};
+		tspec.internalFormat = GL_RGBA16F;
+		tspec.width = 1920;
+		tspec.height = 1080;
+		tspec.slot = 0;
+		auto texture = Texture::create(tspec);
 
-        FramebufferSpecification spec = {};
-        spec.clear_color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
-        spec.depth_stencil = true;
-        spec.width = _desc->width;
-        spec.height = _desc->height;
-        spec.color_attachements = { texture };
-        m_screen = Framebuffer::create(spec);
-    }
+		tspec.slot = 1;
+		auto bloomTexture = Texture::create(tspec);
 
-    // model
-    m_model = Model::create("laptop");
-    m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(10.0f));
+		FramebufferSpecification spec = {};
+		spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		spec.depth_stencil = true;
+		spec.width = _desc->width;
+		spec.height = _desc->height;
+		spec.color_attachements = { texture, bloomTexture };
+		m_screen = Framebuffer::create(spec);
+	}
 
-    return _logic->on_init();
+	// model
+	m_model = Model::create("hideout");
+	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.1f));
 
-    return true;
+	return _logic->on_init();
+
+	return true;
 }
 
 void Engine::run()
 {
-    init();
+	init();
 
-    // opengl settings
-    glEnable(GL_MULTISAMPLE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+	// opengl settings
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
 
-    while (!glfwWindowShouldClose(_window))
-    {
-        glfwGetCurrentContext();
+	while (!glfwWindowShouldClose(_window))
+	{
+		glfwGetCurrentContext();
 
-        update();
+		update();
 
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glViewport(0, 0, _desc->width, _desc->height);
-            glClearColor(0.4f, 0.0f, 0.2f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		{
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glViewport(0, 0, _desc->width, _desc->height);
+			glClearColor(0.4f, 0.0f, 0.2f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-        }
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+		}
 
-        m_screen->begin_pass();
-        render();
+		m_screen->begin_pass();
+		render();
 
-        // back to rendering to screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, _desc->width, _desc->height);
+		// back to rendering to screen
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, _desc->width, _desc->height);
 
-        m_renderer->render_screen_framebuffer(m_screen);
+		// render quad to screen
+		m_renderer->render_screen_framebuffer(m_screen);
 
-        // clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
-        this->clear();
+		// render debug menus
+		{
+			m_model->render_menu_debug();
+		}
 
-        // end frame
-        {
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-            auto backup = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(backup);
+		// end frame
+		{
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-            glfwSwapBuffers(glfwGetCurrentContext());
-        }
-        glfwPollEvents();
-    }
+			auto backup = glfwGetCurrentContext();
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+			glfwMakeContextCurrent(backup);
 
-    _logic->on_shutdown();
+			glfwSwapBuffers(glfwGetCurrentContext());
+		}
+
+		// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
+		this->clear();
+		glfwPollEvents();
+	}
+
+	_logic->on_shutdown();
 }
 
 b8 Engine::update()
 {
-    // calculate delta time
-    const auto now = this->now();
-    _delta = float(now - _last_frame) / NS_PER_SECOND;
-    _last_frame = now;
+	// calculate delta time
+	const auto now = this->now();
+	_delta = float(now - _last_frame) / NS_PER_SECOND;
+	_last_frame = now;
 
-    // update camera
-    Camera::Direction direction = Camera::Direction::NONE;
-    if (keys[GLFW_KEY_W].down)
-        m_camera->move(Camera::Direction::FORWARD, (f32)_delta);
-    if (keys[GLFW_KEY_S].down)
-        m_camera->move(Camera::Direction::BACKWARD, (f32)_delta);
-    if (keys[GLFW_KEY_A].down)
-        m_camera->move(Camera::Direction::LEFT, (f32)_delta);
-    if (keys[GLFW_KEY_D].down)
-        m_camera->move(Camera::Direction::RIGHT, (f32)_delta);
-    if (keys[GLFW_KEY_SPACE].down)
-        m_camera->move(Camera::Direction::UP, (f32)_delta);
-    if (keys[GLFW_KEY_LEFT_SHIFT].down)
-        m_camera->move(Camera::Direction::DOWN, (f32)_delta);
+	// update camera
+	if (m_mouse_locked) {
+		Camera::Direction direction = Camera::Direction::NONE;
+		if (keys[GLFW_KEY_W].down)
+			m_camera->move(Camera::Direction::FORWARD, (f32)_delta);
+		if (keys[GLFW_KEY_S].down)
+			m_camera->move(Camera::Direction::BACKWARD, (f32)_delta);
+		if (keys[GLFW_KEY_A].down)
+			m_camera->move(Camera::Direction::LEFT, (f32)_delta);
+		if (keys[GLFW_KEY_D].down)
+			m_camera->move(Camera::Direction::RIGHT, (f32)_delta);
+		if (keys[GLFW_KEY_SPACE].down)
+			m_camera->move(Camera::Direction::UP, (f32)_delta);
+		if (keys[GLFW_KEY_LEFT_SHIFT].down)
+			m_camera->move(Camera::Direction::DOWN, (f32)_delta);
 
-    m_camera->rotate((f32)mouse_delta.x, (f32)mouse_delta.y, (f32)_delta);
+		m_camera->rotate((f32)mouse_delta.x, (f32)mouse_delta.y, (f32)_delta);
+	}
 
-    // camera lock and unlock
-    if (keys[GLFW_KEY_LEFT_CONTROL].pressed) {
-        m_mouse_locked = !m_mouse_locked;
-        if (m_mouse_locked) glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        else glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }
+	// camera lock and unlock
+	if (keys[GLFW_KEY_LEFT_CONTROL].pressed) {
+		m_mouse_locked = !m_mouse_locked;
+		if (m_mouse_locked) glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		else glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
 
-    // update matrices
-    m_renderer->update_view(
-        m_camera->get_view_matrix(),
-        m_camera->get_projection_matrix(),
-        m_camera->get_position()
-    );
+	// update matrices
+	m_renderer->update_view(
+		m_camera->get_view_matrix(),
+		m_camera->get_projection_matrix(),
+		m_camera->get_position()
+	);
 
-    // call game logic update
-    _logic->on_update();
+	// call game logic update
+	_logic->on_update();
 
-    if (keys[GLFW_KEY_ESCAPE].down) {
-        glfwSetWindowShouldClose(_window, true);
-    }
+	if (keys[GLFW_KEY_ESCAPE].down) {
+		glfwSetWindowShouldClose(_window, true);
+	}
 
-    return true;
+	return true;
 }
 
 b8 Engine::render()
 {
-    ImGui::ShowDemoWindow();
+	ImGui::ShowDemoWindow();
 
-    {
-        ImGui::Begin("dll");
-        if (ImGui::Button("Reload DLL")) {
-            if (_logic) {
-                _logic->load_game("testbedd.dll");
+	{
+		ImGui::Begin("dll");
+		if (ImGui::Button("Reload DLL")) {
+			if (_logic) {
+				_logic->load_game("testbedd.dll");
 
-                // call on_init after loading new dll
-                _logic->on_init();
-            }
-        }
-        ImGui::End();
-    }
+				// call on_init after loading new dll
+				_logic->on_init();
+			}
+		}
+		ImGui::End();
+	}
 
 
-    {
-        ImGui::Begin("DEBUG");
-        ImGui::Text("FPS: %.1f", 1.0f / _delta);
-        ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
-        ImGui::End();
-    }
+	{
+		ImGui::Begin("DEBUG");
+		ImGui::Text("FPS: %.1f", 1.0f / _delta);
+		ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
+		ImGui::End();
+	}
 
-    _logic->on_render();
-    m_model->render(m_renderer->get_shader("pbr"));
+	_logic->on_render();
+	m_model->render(m_renderer->get_shader("pbr"));
 
-    return true;
+	return true;
 }
 
 u64 Engine::now()
 {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now().time_since_epoch())
-        .count();
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(
+		std::chrono::high_resolution_clock::now().time_since_epoch())
+		.count();
 }
 
 f64 Engine::get_delta() const
 {
-    return _delta;
+	return _delta;
+}
+
+const std::unique_ptr<Renderer>& Engine::get_renderer() const
+{
+	return m_renderer;
 }
 
 void Engine::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
 {
-    g_engine->_desc->width = width;
-    g_engine->_desc->height = height;
-    glViewport(0, 0, width, height);
-    g_engine->_logic->on_resize(width, height);
+	g_engine->_desc->width = width;
+	g_engine->_desc->height = height;
+	glViewport(0, 0, width, height);
+	g_engine->_logic->on_resize(width, height);
 }
 
 void Engine::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
 {
-    // initialize mouse position
-    // this is done only once to avoid the mouse jumping to the center of the screen
-    std::call_once(g_engine->m_mouse_init, [&]() {
-        g_engine->mouse_pos.x = xpos;
-        g_engine->mouse_pos.y = ypos;
-        });
+	// initialize mouse position
+	// this is done only once to avoid the mouse jumping to the center of the screen
+	std::call_once(g_engine->m_mouse_init, [&]() {
+		g_engine->mouse_pos.x = xpos;
+		g_engine->mouse_pos.y = ypos;
+		});
 
-    g_engine->mouse_delta.x = xpos - g_engine->mouse_pos.x;
-    g_engine->mouse_delta.y = g_engine->mouse_pos.y - ypos;
+	g_engine->mouse_delta.x = xpos - g_engine->mouse_pos.x;
+	g_engine->mouse_delta.y = g_engine->mouse_pos.y - ypos;
 
-    g_engine->mouse_pos.x = xpos;
-    g_engine->mouse_pos.y = ypos;
+	g_engine->mouse_pos.x = xpos;
+	g_engine->mouse_pos.y = ypos;
 }
 
 void Engine::_mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods)
 {
-    if (action == GLFW_PRESS) {
-        g_engine->mouse_keys[button].down = true;
-        g_engine->mouse_keys[button].pressed = true;
-    }
-    else if (action == GLFW_RELEASE) {
-        g_engine->mouse_keys[button].down = false;
-        g_engine->mouse_keys[button].released = true;
-    }
+	if (action == GLFW_PRESS) {
+		g_engine->mouse_keys[button].down = true;
+		g_engine->mouse_keys[button].pressed = true;
+	}
+	else if (action == GLFW_RELEASE) {
+		g_engine->mouse_keys[button].down = false;
+		g_engine->mouse_keys[button].released = true;
+	}
 }
 
 void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action, i32 mods)
 {
-    if (action == GLFW_PRESS) {
-        g_engine->keys[key].down = true;
-        g_engine->keys[key].pressed = true;
-    }
-    else if (action == GLFW_RELEASE) {
-        g_engine->keys[key].down = false;
-        g_engine->keys[key].released = true;
-    }
+	if (action == GLFW_PRESS) {
+		g_engine->keys[key].down = true;
+		g_engine->keys[key].pressed = true;
+	}
+	else if (action == GLFW_RELEASE) {
+		g_engine->keys[key].down = false;
+		g_engine->keys[key].released = true;
+	}
 }
 
 void Engine::clear()
 {
-    // clear keyboard keys
-    for (auto& key : keys) {
-        key.pressed = false;
-        key.released = false;
-    }
+	// clear keyboard keys
+	for (auto& key : keys) {
+		key.pressed = false;
+		key.released = false;
+	}
 
-    // clear mouse keys
-    for (auto& key : mouse_keys) {
-        key.pressed = false;
-        key.released = false;
-    }
+	// clear mouse keys
+	for (auto& key : mouse_keys) {
+		key.pressed = false;
+		key.released = false;
+	}
 
-    // clear mouse delta
-    mouse_delta.x = 0;
-    mouse_delta.y = 0;
+	// clear mouse delta
+	mouse_delta.x = 0;
+	mouse_delta.y = 0;
 }

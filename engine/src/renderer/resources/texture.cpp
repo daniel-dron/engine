@@ -56,6 +56,9 @@ void Texture::loadFromFile() {
         data = stbi_load(path.c_str(), &width, &height, &channels, 0);
     }
 
+    m_width = width;
+    m_height = height;
+
     glGenTextures(1, &m_id);
     glBindTexture(m_spec.target, m_id);
 
@@ -76,6 +79,9 @@ void Texture::loadFromData() {
     glGenTextures(1, &m_id);
     glBindTexture(m_spec.target, m_id);
 
+    m_width = m_spec.width;
+    m_height = m_spec.height;
+
     glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_S, m_spec.wrapS);
     glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_T, m_spec.wrapT);
     glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
@@ -87,4 +93,14 @@ void Texture::loadFromData() {
         glGenerateMipmap(m_spec.target);
 
     glBindTexture(m_spec.target, 0);
+}
+
+u32 Texture::get_width() const
+{
+    return m_width;
+}
+
+u32 Texture::get_height() const
+{
+    return m_height;
 }

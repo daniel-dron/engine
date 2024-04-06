@@ -24,8 +24,8 @@ layout(binding = 2) uniform sampler2D metallicRoughnessMap;
 
 // lights
 uniform vec3 lightPositions[4] = {
-    vec3(7.7f, 2.0f, 0.5f), vec3(7.7f, 5.0f, 0.5f),
-    vec3(-5.3f, 3.5f, 0.5f), vec3(4.0f, -1.0f, -2.5f)
+    vec3(7.7f, 2.0f, 10.5f), vec3(7.7f, 5.0f, 10.5f),
+    vec3(-5.3f, 3.5f, 10.5f), vec3(4.0f, -1.0f, -2.5f)
 };
 
 uniform vec3 lightColors[4] = {

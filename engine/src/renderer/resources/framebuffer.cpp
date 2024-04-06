@@ -13,6 +13,13 @@ Framebuffer::Framebuffer(const FramebufferSpecification& spec)
 		texture->bind_to_framebuffer(m_color_attachement_id++);
 	}
 
+	std::vector<u32> attachments;
+	for (int i = 0; i < m_color_attachement_id; i++) {
+		attachments.push_back(GL_COLOR_ATTACHMENT0 + i);
+	}
+
+	glDrawBuffers(m_color_attachement_id, attachments.data());
+
 	// create depth renderbuffer
 	if (m_spec.depth_stencil) {
 		glGenRenderbuffers(1, &m_depth_stencil_renderbuffer);

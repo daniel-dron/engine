@@ -1,10 +1,10 @@
-#version 330 core
+#version 430 core
 out vec4 FragColor;
   
 in vec2 TexCoords;
 
-uniform sampler2D screenTexture;
-uniform sampler2D bloomBlur;
+layout(binding = 0) uniform sampler2D screenTexture;
+layout(binding = 1) uniform sampler2D bloomBlur;
 
 uniform float exposure;
 
@@ -12,8 +12,8 @@ void main()
 { 
 
     vec3 hdrColor = texture(screenTexture, TexCoords).rgb;
-    //vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
-    //hdrColor += bloomColor;
+    vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
+    hdrColor += bloomColor;
 
     // tone mapping
     hdrColor = hdrColor / (hdrColor + vec3(1.0));

@@ -36,10 +36,14 @@ public:
     void unbind() override;
     void bind_to_framebuffer(u32 attachement_slot) const;
 
+    u32 get_width() const;
+    u32 get_height() const;
 private:
     void loadFromFile();
     void loadFromData();
 
     TextureSpecification m_spec;
     std::string m_path;
+    u32 m_width;
+    u32 m_height;
 };
