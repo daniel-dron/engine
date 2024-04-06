@@ -130,8 +130,8 @@ void main() {
     vec3 color = ambient + Lo;
 
     // HDR tonemapping and gamma correction
-    color = color / (color + vec3(1.0f));
-    color = pow(color, vec3(1.0f/2.2f));
+    //color = color / (color + vec3(1.0f));
+    //color = pow(color, vec3(1.0f/2.2f));
 
     // TODO: remove lol
     FragColor = vec4(color, 1.0f);

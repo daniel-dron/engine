@@ -164,6 +164,23 @@ b8 Engine::init()
     m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
     m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
 
+    // create screen framebuffer
+    {
+        TextureSpecification tspec = {};
+        tspec.internalFormat = GL_RGBA16F;
+        tspec.width = 1920;
+        tspec.height = 1080;
+        auto texture = Texture::create(tspec);
+
+        FramebufferSpecification spec = {};
+        spec.clear_color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
+        spec.depth_stencil = true;
+        spec.width = _desc->width;
+        spec.height = _desc->height;
+        spec.color_attachements = { texture };
+        m_screen = Framebuffer::create(spec);
+    }
+
     // model
     m_model = Model::create("laptop");
     m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(10.0f));
@@ -191,6 +208,8 @@ void Engine::run()
         update();
 
         {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, _desc->width, _desc->height);
             glClearColor(0.4f, 0.0f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -199,7 +218,14 @@ void Engine::run()
             ImGui::NewFrame();
         }
 
+        m_screen->begin_pass();
         render();
+
+        // back to rendering to screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, _desc->width, _desc->height);
+
+        m_renderer->render_screen_framebuffer(m_screen);
 
         // clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
         this->clear();

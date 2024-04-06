@@ -34,6 +34,7 @@ public:
 
     void bind() override;
     void unbind() override;
+    void bind_to_framebuffer(u32 attachement_slot) const;
 
 private:
     void loadFromFile();

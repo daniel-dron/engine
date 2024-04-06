@@ -28,6 +28,11 @@ void Texture::unbind() {
     glBindTexture(m_spec.target, 0);
 }
 
+void Texture::bind_to_framebuffer(u32 attachement_slot) const
+{
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachement_slot, m_spec.target, m_id, 0);
+}
+
 void Texture::loadFromFile() {
     auto path = m_spec.path;
 

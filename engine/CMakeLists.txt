@@ -7,6 +7,7 @@ add_executable(engine
     src/renderer/resources/shader_program.cpp
     src/renderer/resources/gl_errors.cpp
     src/renderer/resources/texture.cpp
+    src/renderer/resources/framebuffer.cpp
     src/camera.cpp
     src/renderer/renderer.cpp
     src/renderer/mesh.cpp

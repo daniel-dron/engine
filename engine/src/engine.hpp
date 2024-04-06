@@ -10,6 +10,7 @@
 #include <mutex>
 #include "camera.hpp"
 #include "renderer/renderer.hpp"
+#include <renderer/resources/framebuffer.hpp>
 
 class Mesh;
 struct GLFWwindow;
@@ -107,9 +108,9 @@ private:
     u64 _last_frame; 
 
     std::shared_ptr<Camera> m_camera;
-
     std::shared_ptr<Model> m_model;
     std::unique_ptr<Renderer> m_renderer;
+    std::shared_ptr<Framebuffer> m_screen;
 
     std::once_flag m_mouse_init;
     bool m_mouse_locked = false;
