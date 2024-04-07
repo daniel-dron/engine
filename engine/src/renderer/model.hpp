@@ -11,7 +11,7 @@ public:
 	Node(std::vector<std::shared_ptr<Mesh>> meshes, const glm::mat4& transform);
 
 	void add_child(std::shared_ptr<Node> child);
-	void render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& parent_transform) const;
+	void render(const glm::mat4& parent_transform) const;
 
 	glm::mat4 m_transform;
 
@@ -28,7 +28,7 @@ public:
 
 	explicit Model(const std::string& name);
 
-	void render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& transform = glm::mat4(1.0f)) const;
+	void render(const glm::mat4& transform = glm::mat4(1.0f)) const;
 	void render_menu_debug() const;
 
 	std::shared_ptr<Node> get_root() const;

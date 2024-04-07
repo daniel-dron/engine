@@ -13,7 +13,7 @@ void main()
 
     vec3 hdrColor = texture(screenTexture, TexCoords).rgb;
     vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
-    hdrColor += bloomColor;
+    //hdrColor += bloomColor;
 
     // tone mapping
     hdrColor = hdrColor / (hdrColor + vec3(1.0));

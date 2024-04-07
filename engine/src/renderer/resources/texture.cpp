@@ -67,7 +67,7 @@ void Texture::loadFromFile() {
     glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
     glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
 
-    glTexImage2D(m_spec.target, 0, m_spec.internalFormat, width, height, 0, m_spec.format, m_spec.type, data);
+    glTexImage2D(m_spec.target, 0, m_spec.internalFormat, width, height, 0, channels > 3 ? GL_RGBA : GL_RGB , m_spec.type, data);
     if (m_spec.generateMipmaps)
         glGenerateMipmap(m_spec.target);
 

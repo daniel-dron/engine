@@ -23,7 +23,7 @@ Camera::Camera(f32 aspect_ratio, f32 fov, f32 near, f32 far)
     m_pitch = 0.0f;
 
     m_speed = 2.5f;
-    m_sensitivity = 35.0f;
+    m_sensitivity = 15.0f;
 
     update_vectors();
 }

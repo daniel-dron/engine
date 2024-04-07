@@ -18,9 +18,15 @@ layout (std140, binding = 0) uniform Matrices {
     vec3 eyePos;
 };
 
-layout(binding = 0) uniform sampler2D albedoMap;
-layout(binding = 1) uniform sampler2D normalMap;
-layout(binding = 2) uniform sampler2D metallicRoughnessMap;
+layout(binding = 0) uniform sampler2D albedo_map;
+layout(binding = 1) uniform sampler2D normal_map;
+layout(binding = 2) uniform sampler2D mra_map;
+layout(binding = 3) uniform sampler2D emissive_map;
+
+uniform float metallic_factor = 1.0f;
+uniform float roughness_factor = 1.0f;
+uniform float emissive_factor = 1.0f;
+uniform float ao_factor = 1.0f;
 
 // lights
 uniform vec3 lightPositions[4] = {
@@ -29,8 +35,8 @@ uniform vec3 lightPositions[4] = {
 };
 
 uniform vec3 lightColors[4] = {
-	vec3(550.0f, 550.0f, 550.0f), vec3(150.0f, 150.0f, 150.0f),
-	vec3(550.0f, 550.0f, 550.0f), vec3(150.0f, 150.0f, 150.0f)        
+	vec3(50.0f, 50.0f, 50.0f), vec3(50.0f, 50.0f, 50.0f),
+	vec3(50.0f, 50.0f, 50.0f), vec3(50.0f, 50.0f, 50.0f)        
 };
 
 float PI = 3.14159265359f;
@@ -77,7 +83,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 vec3 getNormalFromMap()
 {
-    vec3 n = texture(normalMap, fs_in.uvs).rgb;
+    vec3 n = texture(normal_map, fs_in.uvs).rgb;
     n = n * 2.0f - 1.0f;
     return normalize(fs_in.TBN * n);
 
@@ -88,11 +94,12 @@ void main() {
     vec3 V = normalize(eyePos - fs_in.fragPos);
 
     // apply gamma correction to albedo
-    vec3 albedo = texture(albedoMap, fs_in.uvs).rgb;
+    vec3 albedo = texture(albedo_map, fs_in.uvs).rgb;
+    vec3 emissive = texture(emissive_map, fs_in.uvs).rgb * emissive_factor;
     vec3 normal = getNormalFromMap();
-    float metallic = texture(metallicRoughnessMap, fs_in.uvs).b;
-    float roughness = texture(metallicRoughnessMap, fs_in.uvs).g;
-    float ao = texture(metallicRoughnessMap, fs_in.uvs).r;
+    float metallic = texture(mra_map, fs_in.uvs).b * metallic_factor;
+    float roughness = texture(mra_map, fs_in.uvs).g * roughness_factor;
+    float ao = texture(mra_map, fs_in.uvs).r * ao_factor;
 
     vec3 Lo = vec3(0.0f);
     for(int i = 0; i < 4; ++i) {
@@ -127,7 +134,7 @@ void main() {
     }
 
     vec3 ambient = vec3(0.03) * albedo * ao;
-    vec3 color = ambient + Lo;
+    vec3 color = ambient + Lo + emissive;
 
     // HDR tonemapping and gamma correction
     //color = color / (color + vec3(1.0f));

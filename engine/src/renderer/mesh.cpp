@@ -101,7 +101,7 @@ Mesh::Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& model_pa
 			TextureSpecification spec{};
 			spec.slot = slot;
 			spec.path = path.string();
-			spec.internalFormat = type == aiTextureType_DIFFUSE ? GL_SRGB_ALPHA : GL_RGBA;
+			spec.internalFormat = type == aiTextureType_DIFFUSE || aiTextureType_EMISSIVE ? GL_SRGB_ALPHA : GL_RGBA;
 			spec.format = GL_RGB;
 
 			auto texture = g_engine->get_renderer()->get_texture(path.string());
@@ -113,20 +113,28 @@ Mesh::Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& model_pa
 			return texture;
 			};
 
-		m_albedo = load_texture(aiTextureType_DIFFUSE, 0);
-		m_normal = load_texture(aiTextureType_NORMALS, 1);
-		m_mra = load_texture(aiTextureType_METALNESS, 2);
+		auto albedo = load_texture(aiTextureType_DIFFUSE, 0);
+		auto normal = load_texture(aiTextureType_NORMALS, 1);
+		auto mra = load_texture(aiTextureType_METALNESS, 2);
+		auto emissive = load_texture(aiTextureType_EMISSIVE, 3);
+
+		PbrMaterial pbr = {};
+		pbr.metallic_factor = 1.0f;
+		pbr.roughness_factor = 1.0f;
+		pbr.ao_factor = 1.0f;
+		pbr.albedo = albedo;
+		pbr.normal = normal;
+		pbr.mra = mra;
+		pbr.emissive = emissive;
+		pbr.shader = g_engine->get_renderer()->get_shader("pbr");
+		m_pbr = std::make_shared<PbrMaterial>(pbr);
 	}
 }
 
 
-void Mesh::draw(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& model) const {
-	shader->bind();
-	shader->set_mat4("model", glm::value_ptr(model));
-
-	if (m_albedo) m_albedo->bind();
-	if (m_normal) m_normal->bind();
-	if (m_mra) m_mra->bind();
+void Mesh::render(const glm::mat4& model) const {
+	m_pbr->bind();
+	m_pbr->shader->set_mat4("model", glm::value_ptr(model));
 
 	m_vao->bind();
 	glDrawElements(GL_TRIANGLES, m_ibuffer->get_count(), GL_UNSIGNED_INT, nullptr);
@@ -141,30 +149,7 @@ void Mesh::render_menu_debug() const
 {
 #if GRAPHICS_DEBUG
 	ImGui::Text("Name: %s", m_name.c_str());
-
-
-	auto render_image_column = [&](const std::shared_ptr<Texture>& texture) {
-		if (texture) utils::imgui_render_hoverable_image(texture, ImVec2(200.0f, 200.0f));
-		else ImGui::Text("No Image!");
-		};
-
-	// texture tables
-	if (ImGui::BeginTable("Textures", 3)) {
-		ImGui::TableSetupColumn("Albedo");
-		ImGui::TableSetupColumn("Normal");
-		ImGui::TableSetupColumn("MRA");
-		ImGui::TableHeadersRow();
-
-		ImGui::TableNextRow();
-
-		ImGui::TableNextColumn();
-		render_image_column(m_albedo);
-		ImGui::TableNextColumn();
-		render_image_column(m_normal);
-		ImGui::TableNextColumn();
-		render_image_column(m_mra);
-
-		ImGui::EndTable();
-	}
+	
+	m_pbr->render_menu_debug();
 #endif
 }

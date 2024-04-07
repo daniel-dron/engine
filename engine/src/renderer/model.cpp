@@ -14,16 +14,16 @@ void Node::add_child(std::shared_ptr<Node> child)
 	m_children.push_back(std::move(child));
 }
 
-void Node::render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& parent_transform) const
+void Node::render(const glm::mat4& parent_transform) const
 {
 	const auto transform = parent_transform * m_transform;
 
 	for (const auto& mesh : m_meshes) {
-		mesh->draw(shader, transform);
+		mesh->render(transform);
 	}
 
 	for (const auto& child : m_children) {
-		child->render(shader, transform);
+		child->render(transform);
 	}
 }
 
@@ -41,9 +41,9 @@ Model::Model(const std::string& name) {
 	m_root = parse_node(p_scene->mRootNode);
 }
 
-void Model::render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& transform) const
+void Model::render(const glm::mat4& transform) const
 {
-	m_root->render(shader, transform);
+	m_root->render(transform);
 }
 
 void Model::render_menu_debug() const

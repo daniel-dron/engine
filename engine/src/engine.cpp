@@ -186,8 +186,8 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("hideout");
-	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.1f));
+	m_model = Model::create("damaged_helmet");
+	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.1f));
 
 	return _logic->on_init();
 
@@ -234,28 +234,31 @@ void Engine::run()
 
 		// render debug menus
 		{
-			m_model->render_menu_debug();
+			if (ImGui::Button("Reload Shaders")) {
+				m_renderer->get_shader("pbr")->invalidate();
+				m_model->render_menu_debug();
+			}
+
+
+			// end frame
+			{
+				ImGui::Render();
+				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+				auto backup = glfwGetCurrentContext();
+				ImGui::UpdatePlatformWindows();
+				ImGui::RenderPlatformWindowsDefault();
+				glfwMakeContextCurrent(backup);
+
+				glfwSwapBuffers(glfwGetCurrentContext());
+			}
+
+			// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
+			this->clear();
+			glfwPollEvents();
 		}
 
-
-		// end frame
-		{
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-			auto backup = glfwGetCurrentContext();
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-			glfwMakeContextCurrent(backup);
-
-			glfwSwapBuffers(glfwGetCurrentContext());
-		}
-
-		// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
-		this->clear();
-		glfwPollEvents();
 	}
-
 	_logic->on_shutdown();
 }
 
@@ -335,7 +338,7 @@ b8 Engine::render()
 	}
 
 	_logic->on_render();
-	m_model->render(m_renderer->get_shader("pbr"));
+	m_model->render();
 
 	return true;
 }

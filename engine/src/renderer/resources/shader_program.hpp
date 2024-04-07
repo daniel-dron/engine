@@ -2,6 +2,7 @@
 #include <string>
 
 #include "bindable.hpp"
+#include <filesystem>
 #include <memory>
 
 class KAPI ShaderProgram : Bindable {
@@ -21,6 +22,7 @@ class KAPI ShaderProgram : Bindable {
 
     void bind() override;
     void unbind() override;
+    void invalidate();
 
     void set_bool(const std::string &name, bool value) const;
     void set_int(const std::string &name, int value) const;
@@ -31,4 +33,8 @@ class KAPI ShaderProgram : Bindable {
 
   private:
     static void checkCompileErrors(unsigned int shader, const std::string &type);
+    static u32 compile_shader(const std::filesystem::path& vertex_path, const std::filesystem::path& frag_path);
+
+    std::string m_vertex_path;
+    std::string m_frag_path;
 };

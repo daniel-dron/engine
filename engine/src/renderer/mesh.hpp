@@ -10,6 +10,7 @@
 #include "resources/vertex_array.hpp"
 #include "resources/shader_program.hpp"
 #include "renderer.hpp"
+#include "material.hpp"
 
 // assimp forward declare
 struct aiMesh;
@@ -23,16 +24,14 @@ public:
 
     Mesh(const aiMesh *mesh, const aiScene *scene, const std::string &model_path);
 
-    void draw(const std::shared_ptr<ShaderProgram> &shader, const glm::mat4 &model) const;
+    void render(const glm::mat4 &model) const;
     std::string get_name() const;
 
     void render_menu_debug() const;
 private:
     std::string m_name;
 
-    std::shared_ptr<Texture> m_albedo;
-    std::shared_ptr<Texture> m_normal;
-    std::shared_ptr<Texture> m_mra; // metallic, roughness, ao (gltf 2.0)
+    std::shared_ptr<PbrMaterial> m_pbr;
 
     std::shared_ptr<GlBuffer> m_vbuffer;
     std::shared_ptr<GlBuffer> m_ibuffer;
