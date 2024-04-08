@@ -114,11 +114,21 @@ private:
     std::unique_ptr<Renderer> m_renderer;
     std::shared_ptr<Framebuffer> m_screen;
 
+
     std::once_flag m_mouse_init;
     bool m_mouse_locked = false;
     
     // clear keys
     void clear();
+
+    // IBL
+    std::shared_ptr<Texture> m_hdr_texture;
+	u32 env_cubemap;
+    std::shared_ptr<Framebuffer> m_capture_framebuffer;
+    glm::mat4 cubemap_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.0f, 10.0f);
+    std::vector<glm::mat4> cubemap_views;
+    void initialize_ibl();
+    
 
     static void _window_size_callback(GLFWwindow* window, i32 width, i32 height);
     static void _cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos);

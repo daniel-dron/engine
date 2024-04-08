@@ -12,8 +12,10 @@
 
 Texture::Texture(const TextureSpecification& spec) : m_spec(spec) {
     // from file
-    if (m_spec.data == nullptr && m_spec.path != "")
-        loadFromFile();
+    if (m_spec.data == nullptr && m_spec.path != "") {
+        if (m_spec.hdr) loadHdrFromFile();
+        else loadFromFile();
+    }
     // from data
     else
         loadFromData();
@@ -31,6 +33,46 @@ void Texture::unbind() {
 void Texture::bind_to_framebuffer(u32 attachement_slot) const
 {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachement_slot, m_spec.target, m_id, 0);
+}
+
+void Texture::loadHdrFromFile() {
+    auto path = m_spec.path;
+
+    // if the file does not exist, load the missing texture
+    if (!std::filesystem::exists(m_spec.path)) {
+        path = ResourceState::get()->getTexturePath("missing.png").string();
+        assert(std::filesystem::exists(path) && "Missing texture not found");
+        KERROR("Texture not found: {}", m_spec.path);
+    }
+
+    i32 width, height, channels;
+    stbi_set_flip_vertically_on_load(true);
+    float* data = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
+    if (!data) {
+        KERROR("Failed to load texture: {}", path);
+        stbi_image_free(data);
+
+        // try to load the missing texture
+        path = ResourceState::get()->getTexturePath("missing.png").string();
+        assert(std::filesystem::exists(path) && "Missing texture not found");
+        data = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
+    }
+
+    m_width = width;
+    m_height = height;
+
+    glGenTextures(1, &m_id);
+    glBindTexture(m_spec.target, m_id);
+
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(m_spec.target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(m_spec.target, 0, GL_RGB16F, width, height, 0, channels > 3 ? GL_RGBA : GL_RGB , GL_FLOAT, data);
+
+    glBindTexture(m_spec.target, 0);
+    stbi_image_free(data);
 }
 
 void Texture::loadFromFile() {

@@ -23,6 +23,7 @@
 #include "renderer/model.hpp"
 #include "renderer/resources/buffer.hpp"
 #include <utils.hpp>
+#include "renderer/geometry.hpp"
 
 std::unique_ptr<Engine> g_engine;
 
@@ -187,7 +188,9 @@ b8 Engine::init()
 
 	// model
 	m_model = Model::create("damaged_helmet");
-	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.1f));
+
+	// IBL
+	initialize_ibl();
 
 	return _logic->on_init();
 
@@ -200,8 +203,8 @@ void Engine::run()
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
@@ -232,31 +235,22 @@ void Engine::run()
 		// render quad to screen
 		m_renderer->render_screen_framebuffer(m_screen);
 
-		// render debug menus
+		// end frame
 		{
-			if (ImGui::Button("Reload Shaders")) {
-				m_renderer->get_shader("pbr")->invalidate();
-				m_model->render_menu_debug();
-			}
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+			auto backup = glfwGetCurrentContext();
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+			glfwMakeContextCurrent(backup);
 
-			// end frame
-			{
-				ImGui::Render();
-				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-				auto backup = glfwGetCurrentContext();
-				ImGui::UpdatePlatformWindows();
-				ImGui::RenderPlatformWindowsDefault();
-				glfwMakeContextCurrent(backup);
-
-				glfwSwapBuffers(glfwGetCurrentContext());
-			}
-
-			// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
-			this->clear();
-			glfwPollEvents();
+			glfwSwapBuffers(glfwGetCurrentContext());
 		}
+
+		// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
+		this->clear();
+		glfwPollEvents();
 
 	}
 	_logic->on_shutdown();
@@ -334,11 +328,33 @@ b8 Engine::render()
 		ImGui::Begin("DEBUG");
 		ImGui::Text("FPS: %.1f", 1.0f / _delta);
 		ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
+
+		ImGui::Separator();
+		utils::imgui_render_hoverable_image(m_hdr_texture, ImVec2(200.0f, 200.0f));
+		ImGui::Separator();
+
+		// render debug menus
+		if (ImGui::Button("Reload Shaders")) {
+			m_renderer->get_shader("pbr")->invalidate();
+		}
+		m_model->render_menu_debug();
 		ImGui::End();
 	}
 
 	_logic->on_render();
 	m_model->render();
+
+	// draw skybox
+	auto cube = geometry::get_cube();
+	cube->vao->bind();
+	auto skybox_shader = m_renderer->get_shader("cubemap");
+	skybox_shader->bind();
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
+	glDepthFunc(GL_LEQUAL);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDepthFunc(GL_LESS);
+	cube->vao->unbind();
 
 	return true;
 }
@@ -425,4 +441,58 @@ void Engine::clear()
 	// clear mouse delta
 	mouse_delta.x = 0;
 	mouse_delta.y = 0;
+}
+
+void Engine::initialize_ibl()
+{
+	FramebufferSpecification fspec{};
+	fspec.clear_color = { 1.0f, 0.0f, 0.0f, 1.0f };
+	fspec.color_attachements.clear();
+	fspec.height = 512;
+	fspec.width = 512;
+	fspec.depth_stencil = true;
+	m_capture_framebuffer = Framebuffer::create(fspec);
+
+	TextureSpecification spec{};
+	spec.path = ResourceState::get()->getTexturePath("hdr_studio.hdr").string();
+	spec.hdr = true;
+	m_hdr_texture = Texture::create(spec);
+
+	glGenTextures(1, &env_cubemap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
+	for (u32 i = 0; i < 6; i++) {
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	cubemap_views = {
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+	};
+
+	glViewport(0, 0, 512, 512);
+	m_capture_framebuffer->begin_pass();
+	for (u32 i = 0; i < 6; ++i) {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, env_cubemap, 0);
+		u32 attachements[] = { GL_COLOR_ATTACHMENT0 };
+		glDrawBuffers(1, attachements);
+		auto cube = geometry::get_cube();
+		cube->vao->bind();
+		auto shader = m_renderer->get_shader("test");
+		shader->bind();
+		shader->set_mat4("projection", glm::value_ptr(cubemap_projection));
+		shader->set_mat4("view", glm::value_ptr(cubemap_views[i]));
+		m_hdr_texture->bind();
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		cube->vao->unbind();
+	}
+	m_capture_framebuffer->unbind();
 }

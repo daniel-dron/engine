@@ -96,7 +96,7 @@ Mesh::Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& model_pa
 			aiString texture_path;
 			auto ret = material->GetTexture(type, 0, &texture_path);
 			const auto path = std::filesystem::path(model_path) / texture_path.C_Str();
-			KDEBUG("Loading texture: %s", path.string().c_str());
+			KDEBUG("Loading texture: {}", path.string().c_str());
 
 			TextureSpecification spec{};
 			spec.slot = slot;

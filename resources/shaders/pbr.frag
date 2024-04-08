@@ -102,7 +102,7 @@ void main() {
     float ao = texture(mra_map, fs_in.uvs).r * ao_factor;
 
     vec3 Lo = vec3(0.0f);
-    for(int i = 0; i < 4; ++i) {
+    for(int i = 0; i < 2; ++i) {
         vec3 L = normalize(lightPositions[i] - fs_in.fragPos);
         vec3 H = normalize(V + L);
 

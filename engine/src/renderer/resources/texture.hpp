@@ -22,6 +22,7 @@ struct TextureSpecification {
     GLenum minFilter = GL_LINEAR;
     GLenum magFilter = GL_LINEAR;
     bool generateMipmaps = true;
+    bool hdr = false;
 };
 
 class KAPI Texture : public Bindable {
@@ -40,6 +41,7 @@ public:
     u32 get_height() const;
 private:
     void loadFromFile();
+    void loadHdrFromFile();
     void loadFromData();
 
     TextureSpecification m_spec;
