@@ -26,6 +26,9 @@ public:
 	std::shared_ptr<Texture> get_texture(const std::string& path) const;
 	void add_texture(const std::string& path, std::shared_ptr<Texture> texture);
 
+	std::unique_ptr<VertexArray> m_screen_vao;
+	std::shared_ptr<GlBuffer> m_screen_vbo;
+	std::shared_ptr<GlBuffer> m_screen_ibo;
 private:
 	std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> m_shaders;
 	std::unordered_map<std::string, std::shared_ptr<Texture>> m_textures;
@@ -40,7 +43,4 @@ private:
 
 	// screen quad
 	void init_screen_quad();
-	std::unique_ptr<VertexArray> m_screen_vao;
-	std::shared_ptr<GlBuffer> m_screen_vbo;
-	std::shared_ptr<GlBuffer> m_screen_ibo;
 };

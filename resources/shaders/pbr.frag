@@ -22,6 +22,9 @@ layout(binding = 0) uniform sampler2D albedo_map;
 layout(binding = 1) uniform sampler2D normal_map;
 layout(binding = 2) uniform sampler2D mra_map;
 layout(binding = 3) uniform sampler2D emissive_map;
+layout(binding = 4) uniform samplerCube irradiance_map;
+layout(binding = 5) uniform samplerCube prefilter_map;
+layout(binding = 6) uniform sampler2D brdf_lut;
 
 uniform float metallic_factor = 1.0f;
 uniform float roughness_factor = 1.0f;
@@ -35,8 +38,8 @@ uniform vec3 lightPositions[4] = {
 };
 
 uniform vec3 lightColors[4] = {
-	vec3(50.0f, 50.0f, 50.0f), vec3(50.0f, 50.0f, 50.0f),
-	vec3(50.0f, 50.0f, 50.0f), vec3(50.0f, 50.0f, 50.0f)        
+	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f),
+	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f)        
 };
 
 float PI = 3.14159265359f;
@@ -86,8 +89,12 @@ vec3 getNormalFromMap()
     vec3 n = texture(normal_map, fs_in.uvs).rgb;
     n = n * 2.0f - 1.0f;
     return normalize(fs_in.TBN * n);
-
 }
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}   
 
 void main() {
     vec3 N = normalize(fs_in.normal);
@@ -101,6 +108,11 @@ void main() {
     float roughness = texture(mra_map, fs_in.uvs).g * roughness_factor;
     float ao = texture(mra_map, fs_in.uvs).r * ao_factor;
 
+	// interpolate surface reflection between 0.04 (minimum) and the albedo value
+	// in relation to the metallic factor of the material
+	vec3 F0 = vec3(0.04); 
+	F0      = mix(F0, albedo, metallic);
+
     vec3 Lo = vec3(0.0f);
     for(int i = 0; i < 2; ++i) {
         vec3 L = normalize(lightPositions[i] - fs_in.fragPos);
@@ -110,10 +122,6 @@ void main() {
         float attenuation = 1.0f / (distance * distance);
         vec3 radiance = lightColors[i] * attenuation;
 
-        // interpolate surface reflection between 0.04 (minimum) and the albedo value
-        // in relation to the metallic factor of the material
-        vec3 F0 = vec3(0.04); 
-        F0      = mix(F0, albedo, metallic);
         vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
 		float NDF = DistributionGGX(N, H, roughness);
@@ -133,14 +141,24 @@ void main() {
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    vec2 env_brdf = texture(brdf_lut, vec2(max(dot(N, V), 0.0f), roughness)).rg;
+    const float MAX_REFLECTION_LOD = 4.0;
+
+    // specular
+    vec3 R = reflect(-V, N); 
+	vec3 prefilteredColor = textureLod(prefilter_map, R,  roughness * MAX_REFLECTION_LOD).rgb; 
+    vec3 specular = prefilteredColor * (F * env_brdf.x + env_brdf.y);
+
+    vec3 kS = F;
+    vec3 kD = 1.0f - kS;
+    kD *= 1.0f - metallic;
+    vec3 irradiance = texture(irradiance_map, N).rgb;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = (kD * diffuse + specular) * ao;
     vec3 color = ambient + Lo + emissive;
 
-    // HDR tonemapping and gamma correction
-    //color = color / (color + vec3(1.0f));
-    //color = pow(color, vec3(1.0f/2.2f));
-
-    // TODO: remove lol
     FragColor = vec4(color, 1.0f);
 
     float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));

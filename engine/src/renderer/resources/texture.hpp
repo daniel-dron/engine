@@ -23,6 +23,7 @@ struct TextureSpecification {
     GLenum magFilter = GL_LINEAR;
     bool generateMipmaps = true;
     bool hdr = false;
+    bool flip_y = true;
 };
 
 class KAPI Texture : public Bindable {

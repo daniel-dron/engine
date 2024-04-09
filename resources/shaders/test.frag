@@ -20,5 +20,7 @@ void main()
     vec2 uv = SampleSphericalMap(normalize(local_pos)); // make sure to normalize localPos
     vec3 color = texture(equirectangularMap, uv).rgb;
     
+    // color = color / (color + vec3(1.0f));
+
     out_color = vec4(color, 1.0);
 }

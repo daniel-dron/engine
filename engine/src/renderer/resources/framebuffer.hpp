@@ -24,6 +24,7 @@ public:
 	void bind() override;
 	void unbind() override;
 	void begin_pass();
+	void rescale(u32 width, u32 height);
 	std::shared_ptr<Texture> get_color_attachement(u32 slot) const;
 private:
 	FramebufferSpecification m_spec;
