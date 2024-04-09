@@ -118,7 +118,14 @@ b8 Engine::init()
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwSwapInterval(1);
 
-	_window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
+	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+	_window = glfwCreateWindow(mode->width, mode->height, _desc->window_name.c_str(), nullptr, nullptr);
 	if (_window == nullptr) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -126,6 +133,7 @@ b8 Engine::init()
 	}
 
 	glfwMakeContextCurrent(_window);
+	glfwSetWindowMonitor(_window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
 
 	// set callbacks
 	glfwSetWindowSizeCallback(_window, _window_size_callback);
@@ -169,8 +177,8 @@ b8 Engine::init()
 	{
 		TextureSpecification tspec = {};
 		tspec.internalFormat = GL_RGBA16F;
-		tspec.width = 1920;
-		tspec.height = 1080;
+		tspec.width = _desc->width;
+		tspec.height = _desc->height;
 		tspec.slot = 0;
 		auto texture = Texture::create(tspec);
 
@@ -343,6 +351,7 @@ b8 Engine::render()
 		if (ImGui::Button("Reload Shaders")) {
 			m_renderer->get_shader("pbr")->invalidate();
 		}
+
 		m_model->render_menu_debug();
 		ImGui::End();
 	}
@@ -459,16 +468,19 @@ void Engine::clear()
 
 void Engine::initialize_ibl()
 {
+	u32 width = 2560;
+	u32 height = width;
+
 	FramebufferSpecification fspec{};
 	fspec.clear_color = { 1.0f, 0.0f, 0.0f, 1.0f };
 	fspec.color_attachements.clear();
-	fspec.height = 512;
-	fspec.width = 512;
+	fspec.height = height;
+	fspec.width = width;
 	fspec.depth_stencil = true;
 	m_capture_framebuffer = Framebuffer::create(fspec);
 
 	TextureSpecification spec{};
-	spec.path = ResourceState::get()->getTexturePath("hdr_studio.hdr").string();
+	spec.path = ResourceState::get()->getTexturePath("cobblestone_street_night_16k.hdr").string();
 	spec.hdr = true;
 	spec.flip_y = false;
 	m_hdr_texture = Texture::create(spec);
@@ -476,7 +488,7 @@ void Engine::initialize_ibl()
 	glGenTextures(1, &env_cubemap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
 	for (u32 i = 0; i < 6; i++) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
 	}
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -484,7 +496,7 @@ void Engine::initialize_ibl()
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-	
+
 	cubemap_views = {
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
@@ -494,7 +506,7 @@ void Engine::initialize_ibl()
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 	};
 
-	glViewport(0, 0, 512, 512);
+	glViewport(0, 0, width, height);
 	m_capture_framebuffer->bind();
 	u32 attachements[] = { GL_COLOR_ATTACHMENT0 };
 	glDrawBuffers(1, attachements);
@@ -563,7 +575,7 @@ void Engine::initialize_specular_ibl() {
 	glGenTextures(1, &prefilter_cubemap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, prefilter_cubemap);
 	for (u32 i = 0; i < 6; ++i) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 1024, 1024, 0, GL_RGB, GL_FLOAT, nullptr);
 	}
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -579,8 +591,8 @@ void Engine::initialize_specular_ibl() {
 	m_capture_framebuffer->bind();
 	unsigned int max_mip_levels = 5;
 	for (u32 mip = 0; mip < max_mip_levels; ++mip) {
-		u32 mip_width = 128 * std::pow(0.5f, mip);
-		u32 mip_height = 128 * std::pow(0.5f, mip);
+		u32 mip_width = 1024 * std::pow(0.5f, mip);
+		u32 mip_height = 1024 * std::pow(0.5f, mip);
 
 		m_capture_framebuffer->rescale(mip_width, mip_height);
 		glViewport(0, 0, mip_width, mip_height);

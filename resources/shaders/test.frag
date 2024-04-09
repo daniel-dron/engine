@@ -15,12 +15,21 @@ vec2 SampleSphericalMap(vec3 v)
     return uv;
 }
 
+vec3 aces(vec3 color) {
+	color *= 0.6;
+	float a = 2.51;
+	float b = 0.03;
+	float c = 2.43;
+	float d = 0.59;
+	float e = 0.14;
+	return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0,
+		   1.0);
+}
+
 void main()
 {		
     vec2 uv = SampleSphericalMap(normalize(local_pos)); // make sure to normalize localPos
     vec3 color = texture(equirectangularMap, uv).rgb;
-    
-    // color = color / (color + vec3(1.0f));
 
-    out_color = vec4(color, 1.0);
+    out_color = vec4(aces(color), 1.0);
 }
