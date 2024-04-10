@@ -118,14 +118,7 @@ b8 Engine::init()
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwSwapInterval(1);
 
-	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-
-	_window = glfwCreateWindow(mode->width, mode->height, _desc->window_name.c_str(), nullptr, nullptr);
+	_window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
 	if (_window == nullptr) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -133,13 +126,13 @@ b8 Engine::init()
 	}
 
 	glfwMakeContextCurrent(_window);
-	glfwSetWindowMonitor(_window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
 
 	// set callbacks
 	glfwSetWindowSizeCallback(_window, _window_size_callback);
 	glfwSetCursorPosCallback(_window, _cursor_callback);
 	glfwSetMouseButtonCallback(_window, _mouse_callback);
 	glfwSetKeyCallback(_window, _key_callback);
+	glfwSetDropCallback(_window, _drop_callback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		std::cout << "Failed to initialize GLAD" << std::endl;
@@ -195,21 +188,18 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("damaged_helmet");
+	m_model = Model::create("laptop");
+	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
-	// IBL
-	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-	initialize_ibl();
-	initialize_specular_ibl();
-	initialize_bdrf_texture();
+	auto path = ResourceState::get()->getTexturePath("hdr_studio.hdr");
+	m_ibl = IBL::create(path);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_BACK);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-
 
 	return _logic->on_init();
 
@@ -342,9 +332,20 @@ b8 Engine::render()
 		ImGui::Text("FPS: %.1f", 1.0f / _delta);
 		ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
 
+		static char hdr_name[256] = "";
 		ImGui::Separator();
-		utils::imgui_render_hoverable_image(m_hdr_texture, ImVec2(200.0f, 200.0f));
-		ImGui::Image((ImTextureID)bdrf_lut_texture, ImVec2(200.0f, 200.0f));
+		{
+			ImGui::InputText("hdr: ", hdr_name, IM_ARRAYSIZE(hdr_name));
+			if (ImGui::Button("Reload HDR")) {
+				auto path = ResourceState::get()->getTexturePath(hdr_name);
+				m_ibl = IBL::create(path);
+			}
+			//if (m_hdr_texture)
+			//	utils::imgui_render_hoverable_image(m_hdr_texture, ImVec2(200.0f, 200.0f));
+
+			//if (m_brdf)
+			//	utils::imgui_render_hoverable_image(m_brdf, ImVec2(200.0f, 200.0f));
+		}
 		ImGui::Separator();
 
 		// render debug menus
@@ -357,13 +358,9 @@ b8 Engine::render()
 	}
 
 	_logic->on_render();
-	// set the irradiance map
-	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_cubemap);
-	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, prefilter_cubemap);
-	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_2D, bdrf_lut_texture);
+
+	// set irradiance, prefilter and brdf texture to its respective slots
+	m_ibl->bind(4, 5, 6);
 
 	m_model->render();
 
@@ -372,11 +369,12 @@ b8 Engine::render()
 	cube->vao->bind();
 	auto skybox_shader = m_renderer->get_shader("cubemap");
 	skybox_shader->bind();
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
+	m_ibl->bind_env(0);
+	glDisable(GL_CULL_FACE);
 	glDepthFunc(GL_LEQUAL);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
 	cube->vao->unbind();
 
 	return true;
@@ -447,6 +445,13 @@ void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action
 	}
 }
 
+void Engine::_drop_callback(GLFWwindow* window, int count, const char** paths) {
+	for (u32 i = 0; i < count; i++) {
+		auto path = ResourceState::get()->getTexturePath(paths[i]);
+		g_engine->m_ibl = IBL::create(path);
+	}
+}
+
 void Engine::clear()
 {
 	// clear keyboard keys
@@ -464,178 +469,4 @@ void Engine::clear()
 	// clear mouse delta
 	mouse_delta.x = 0;
 	mouse_delta.y = 0;
-}
-
-void Engine::initialize_ibl()
-{
-	u32 width = 2560;
-	u32 height = width;
-
-	FramebufferSpecification fspec{};
-	fspec.clear_color = { 1.0f, 0.0f, 0.0f, 1.0f };
-	fspec.color_attachements.clear();
-	fspec.height = height;
-	fspec.width = width;
-	fspec.depth_stencil = true;
-	m_capture_framebuffer = Framebuffer::create(fspec);
-
-	TextureSpecification spec{};
-	spec.path = ResourceState::get()->getTexturePath("cobblestone_street_night_16k.hdr").string();
-	spec.hdr = true;
-	spec.flip_y = false;
-	m_hdr_texture = Texture::create(spec);
-
-	glGenTextures(1, &env_cubemap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
-	for (u32 i = 0; i < 6; i++) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-
-	cubemap_views = {
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-	};
-
-	glViewport(0, 0, width, height);
-	m_capture_framebuffer->bind();
-	u32 attachements[] = { GL_COLOR_ATTACHMENT0 };
-	glDrawBuffers(1, attachements);
-	for (u32 i = 0; i < 6; i++) {
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, env_cubemap, 0);
-		auto cube = geometry::get_cube();
-		cube->vao->bind();
-		auto shader = m_renderer->get_shader("test");
-		shader->bind();
-		shader->set_mat4("projection", glm::value_ptr(cubemap_projection));
-		shader->set_mat4("view", glm::value_ptr(cubemap_views[i]));
-		m_hdr_texture->bind();
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		cube->vao->unbind();
-	}
-	m_capture_framebuffer->unbind();
-
-
-	//
-	// PBR: create an irradiance cubemap
-	//
-	glGenTextures(1, &irradiance_cubemap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_cubemap);
-	for (u32 i = 0; i < 6; i++) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// change capture framebuffer dimmensions
-	m_capture_framebuffer->rescale(32, 32);
-	auto shader = m_renderer->get_shader("irradiance");
-	shader->bind();
-
-	// bind cubemap source
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
-
-	glViewport(0, 0, 32, 32);
-	m_capture_framebuffer->bind();
-	for (u32 i = 0; i < 6; i++) {
-		shader->set_mat4("projection", glm::value_ptr(cubemap_projection));
-		shader->set_mat4("view", glm::value_ptr(cubemap_views[i]));
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradiance_cubemap, 0);
-
-		auto cube = geometry::get_cube();
-		cube->vao->bind();
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		cube->vao->unbind();
-	}
-	m_capture_framebuffer->unbind();
-
-	glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_cubemap);
-	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-}
-
-void Engine::initialize_specular_ibl() {
-	auto shader = m_renderer->get_shader("prefilter");
-	shader->bind();
-
-	// create the prefilter map
-	glGenTextures(1, &prefilter_cubemap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, prefilter_cubemap);
-	for (u32 i = 0; i < 6; ++i) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 1024, 1024, 0, GL_RGB, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-
-	// bind the cubemap environment source texture
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
-
-	m_capture_framebuffer->bind();
-	unsigned int max_mip_levels = 5;
-	for (u32 mip = 0; mip < max_mip_levels; ++mip) {
-		u32 mip_width = 1024 * std::pow(0.5f, mip);
-		u32 mip_height = 1024 * std::pow(0.5f, mip);
-
-		m_capture_framebuffer->rescale(mip_width, mip_height);
-		glViewport(0, 0, mip_width, mip_height);
-
-		f32 roughness = (f32)mip / (f32)(max_mip_levels - 1);
-		shader->set_float("roughness", roughness);
-		for (u32 i = 0; i < 6; i++) {
-			shader->set_mat4("projection", glm::value_ptr(cubemap_projection));
-			shader->set_mat4("view", glm::value_ptr(cubemap_views[i]));
-
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilter_cubemap, mip);
-
-			auto cube = geometry::get_cube();
-			cube->vao->bind();
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-			cube->vao->unbind();
-		}
-	}
-	m_capture_framebuffer->unbind();
-}
-
-void Engine::initialize_bdrf_texture() {
-	glGenTextures(1, &bdrf_lut_texture);
-	glBindTexture(GL_TEXTURE_2D, bdrf_lut_texture);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	m_capture_framebuffer->bind();
-	m_capture_framebuffer->rescale(512, 512);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bdrf_lut_texture, 0);
-	glViewport(0, 0, 512, 512);
-
-	auto shader = m_renderer->get_shader("brdf");
-	shader->bind();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	m_renderer->m_screen_vao->bind();
-	glDrawElements(GL_TRIANGLES, m_renderer->m_screen_ibo->get_count(), GL_UNSIGNED_INT, nullptr);
-	m_renderer->m_screen_vao->unbind();
-
-	m_capture_framebuffer->unbind();
 }

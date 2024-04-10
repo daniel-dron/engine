@@ -26,11 +26,12 @@ void main()
     vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
     //hdrColor += bloomColor;
 
-    // tone mapping
-	aces(hdrColor);
 
     // gamma correction
-    hdrColor = pow(hdrColor, vec3(1.0 / 2.2));
+    hdrColor = pow(hdrColor, vec3(1.0 / 2.2f));
 
-    FragColor = vec4(hdrColor, 1.0f);
+    // tone mapping
+	aces(hdrColor);
+    
+	FragColor = vec4(hdrColor, 1.0f);
 }

@@ -11,10 +11,17 @@ void PbrMaterial::bind()
 	shader->set_float("emissive_factor", emissive_factor);
 	shader->set_float("ao_factor", ao_factor);
 
-	albedo->bind();
-	normal->bind();
-	mra->bind();
-	emissive->bind();
+	if (albedo)
+		albedo->bind();
+
+	if (normal)
+		normal->bind();
+
+	if (mra)
+		mra->bind();
+
+	if (emissive_factor)
+		emissive->bind();
 }
 
 void PbrMaterial::unbind()

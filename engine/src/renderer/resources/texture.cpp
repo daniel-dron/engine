@@ -26,6 +26,11 @@ void Texture::bind() {
 	GLCALL(glBindTexture(m_spec.target, m_id));
 }
 
+void Texture::bind(u32 slot) {
+	glActiveTexture(GL_TEXTURE0 + slot);
+	GLCALL(glBindTexture(m_spec.target, m_id));
+}
+
 void Texture::unbind() {
 	glBindTexture(m_spec.target, 0);
 }
