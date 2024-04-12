@@ -1,5 +1,10 @@
 #include "renderer.hpp"
 
+#include <iostream>
+#include <format>
+
+#include <imgui/imgui.h>
+
 Renderer::Renderer() {
 	// initialize camera matrices and uniform buffer
 	m_view_matrices = std::make_shared<ViewMatrices>();
@@ -88,15 +93,57 @@ void Renderer::init_screen_quad()
 	m_screen_vao = std::make_unique<VertexArray>(vao_spec);
 }
 
-void Renderer::render_screen_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer)
+void Renderer::render_screen_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer, u32 width, u32 height)
 {
 	auto shader = get_shader("screen");
 
 	shader->bind();
+	shader->set_bool("use_fxaa", use_fxaa);
+	shader->set_float("luma_threshold", luma_threshold);
+	shader->set_float("mul_reduce", 1.0f / mul_reduce);
+	shader->set_float("min_reduce", 1.0f / min_reduce);
+	shader->set_float("max_span", max_span);
+
 	m_screen_vao->bind();
 	framebuffer->get_color_attachement(0)->bind();
 	framebuffer->get_color_attachement(1)->bind();
+	shader->set_float("inverse_width", 1.0f / width);
+	shader->set_float("inverse_height", 1.0f / height);
 	glDrawElements(GL_TRIANGLES, m_screen_ibo->get_count(), GL_UNSIGNED_INT, nullptr);
 	m_screen_vao->unbind();
 	shader->unbind();
+}
+
+void Renderer::invalidate_shaders()
+{
+	for (auto& shader : m_shaders) {
+		KDEBUG("Reloading shader {}...", shader.first.c_str());
+		shader.second->invalidate();
+	}
+}
+
+void Renderer::render_debug_menu()
+{
+	ImGui::Checkbox("Use FXAA", &use_fxaa);
+	ImGui::BeginDisabled(!use_fxaa);
+	ImGui::DragFloat("Threshold", &luma_threshold, 0.05f, 0.0f, 1.0f);
+	ImGui::DragFloat("Max Span", &max_span, 1.0f, 1.0f, 16.0f);
+
+	auto prev_mul_reduce = mul_reduce;
+	ImGui::InputFloat("Mul Reduce", &mul_reduce, 0.1f, 0.1f);
+	if (mul_reduce > prev_mul_reduce)
+		mul_reduce = prev_mul_reduce * 2;
+	else if (mul_reduce < prev_mul_reduce)
+		mul_reduce = prev_mul_reduce / 2;
+	mul_reduce = std::max(1.0f, mul_reduce);
+
+	auto prev_min_reduce = min_reduce;
+	ImGui::InputFloat("Min Reduce", &min_reduce, 0.1f, 0.1f);
+	if (min_reduce > prev_min_reduce)
+		min_reduce = prev_min_reduce * 2;
+	else if (min_reduce < prev_min_reduce)
+		min_reduce = prev_min_reduce / 2;
+	min_reduce = std::max(1.0f, min_reduce);
+
+	ImGui::EndDisabled();
 }

@@ -25,8 +25,9 @@ int main(int argc, char* argv[]) {
     auto desc = std::make_unique<app_desc>();
     desc->pos_x = 100;
     desc->pos_y = 100;
-    desc->width = 2560;
-    desc->height = 1440;
+    desc->width = 1920;
+    desc->height = 1080;
+    desc->fullscreen = false;
     desc->window_name = "branch: dev-pbr";
     g_engine = Engine::create(std::move(desc));
 

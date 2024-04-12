@@ -20,6 +20,14 @@ void IBL::bind_env(u32 slot)
 	m_env->bind(slot);
 }
 
+std::shared_ptr<Texture> IBL::get_hdri() const {
+	return m_hdr_texture;
+}
+
+std::shared_ptr<Texture> IBL::get_brdf() const {
+	return m_brdf;
+}
+
 void IBL::_load_ibl_maps(const std::string& hdr_name)
 {
 	glDisable(GL_CULL_FACE);

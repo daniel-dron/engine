@@ -37,10 +37,10 @@ void PbrMaterial::render_menu_debug()
 		else ImGui::Text("No Image!");
 		};
 
-	ImGui::DragFloat("Metalness", &metallic_factor, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Roughness", &roughness_factor, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Ambient Occlusion", &ao_factor, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Emissive", &emissive_factor, 0.01f, 0.0f);
+	//ImGui::DragFloat("Metalness", &metallic_factor, 0.01f, 0.0f, 1.0f);
+	//ImGui::DragFloat("Roughness", &roughness_factor, 0.01f, 0.0f, 1.0f);
+	//ImGui::DragFloat("Ambient Occlusion", &ao_factor, 0.01f, 0.0f, 1.0f);
+	//ImGui::DragFloat("Emissive", &emissive_factor, 0.01f, 0.0f);
 
 	// texture tables
 	if (ImGui::BeginTable("Textures", 4)) {

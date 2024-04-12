@@ -19,6 +19,9 @@ public:
 	void bind(u32 irradiance_slot, u32 prefilter_slot, u32 brdf_slot);
 	void bind_env(u32 slot);
 
+	std::shared_ptr<Texture> get_hdri() const;
+	std::shared_ptr<Texture> get_brdf() const;
+
 private:
 	// original hdri image
 	std::shared_ptr<Texture> m_hdr_texture = nullptr;

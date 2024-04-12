@@ -26,6 +26,8 @@ struct app_desc {
     i32 width;
     i32 height;
 
+    bool fullscreen = false;
+
     std::string window_name;
 };
 
@@ -116,7 +118,6 @@ private:
     std::unique_ptr<Renderer> m_renderer;
     std::shared_ptr<Framebuffer> m_screen;
 
-
     std::once_flag m_mouse_init;
     bool m_mouse_locked = false;
     
@@ -134,7 +135,7 @@ private:
 
     GLFWwindow* _window; /**< The window of the application. */
     std::unique_ptr<app_desc> _desc; /**< The description of the application. */
-    std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
+    //std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
 };
 
 extern std::unique_ptr<Engine> g_engine;
