@@ -113,6 +113,8 @@ private:
     f64 _delta;
     u64 _last_frame; 
 
+    bool m_render_deferred = false;
+
     std::shared_ptr<Camera> m_camera;
     std::shared_ptr<Model> m_model;
     std::unique_ptr<Renderer> m_renderer;

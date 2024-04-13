@@ -2,9 +2,11 @@
 
 #include <iostream>
 #include <format>
-
 #include <imgui/imgui.h>
 #include <utils.hpp>
+#include <memory>
+
+#include <engine.hpp>
 
 Renderer::Renderer() {
 	// initialize camera matrices and uniform buffer
@@ -22,6 +24,10 @@ Renderer::Renderer() {
 	// TODO: this should be in a material system type class
 	// but it's enough for current purposes
 	init_default_pbr_material();
+
+	// create gbuffer
+	m_shaders["gbuffer"] = ShaderProgram::create("gbuffer.vert", "gbuffer.frag");
+	m_gbuffer = std::make_unique<GBuffer>(1920, 1080);
 }
 
 void Renderer::init_default_pbr_material()

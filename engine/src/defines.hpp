@@ -44,7 +44,7 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define TRUE 1
 #define FALSE 0
 
-#define GRAPHICS_DEBUG 1
+#define GRAPHICS_DEBUG 0
 
 #if GRAPHICS_DEBUG
 #define KDEBUG(...)                                                                                                     \

@@ -214,10 +214,10 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("hideout");
-	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
+	m_model = Model::create("damaged_helmet");
+	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
-	auto path = ResourceState::get()->getTexturePath("rural_asphalt_road_16k.hdr");
+	auto path = ResourceState::get()->getTexturePath("poly_haven_studio_16k.hdr");
 	m_ibl = IBL::create(path);
 
 	// opengl settings
@@ -366,6 +366,50 @@ b8 Engine::render()
 		ImGui::End();
 	}
 
+	//_logic->on_render();
+
+	glViewport(0, 0, _desc->width, _desc->height);
+
+	// gbuffer pass
+	m_renderer->start_gbuffer_pass();
+	auto gbuffer_shader = m_renderer->get_shader("gbuffer");
+	m_model->render(gbuffer_shader, glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)));
+
+	// forward rendering
+	m_screen->begin_pass();
+
+	if (m_render_deferred) {
+		auto deferred_pbr = m_renderer->get_shader("deferred_lighting");
+		deferred_pbr->bind();
+		m_ibl->bind(5, 6, 7);
+		auto& gbuffer = m_renderer->get_gbuffer();
+		gbuffer->bind_textures();
+		m_renderer->m_screen_vao->bind();
+		glDrawElements(GL_TRIANGLES, m_renderer->m_screen_ibo->get_count(), GL_UNSIGNED_INT, nullptr);
+		
+		// bitblt depth buffer to screen framebuffer
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, m_renderer->get_gbuffer()->get_resource_id());
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
+		glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	}
+
+	// set irradiance, prefilter and brdf texture to its respective slots
+	m_ibl->bind(4, 5, 6);
+	m_model->render();
+
+	// draw skybox
+	auto cube = geometry::get_cube();
+	cube->vao->bind();
+	auto skybox_shader = m_renderer->get_shader("cubemap");
+	skybox_shader->bind();
+	m_ibl->bind_env(0);
+	glDisable(GL_CULL_FACE);
+	glDepthFunc(GL_LEQUAL);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
+	cube->vao->unbind();
+
 	ImGui::Begin("OpenGL PBR + IBL (droon)");
 	{
 		if (ImGui::CollapsingHeader("FXAA")) {
@@ -373,6 +417,11 @@ b8 Engine::render()
 		}
 		if (ImGui::CollapsingHeader("Debug")) {
 			ImGui::Text("FPS: %.1f", 1.0f / _delta);
+			ImGui::Text("Triangles: %ld", m_renderer->get_rendered_triangles());
+			m_renderer->reset_rendered_triangles();
+
+			ImGui::Checkbox("Deferred", &m_render_deferred);
+
 			ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
 			if (ImGui::Button("Reload Shaders")) {
 				m_renderer->invalidate_shaders();
@@ -398,28 +447,6 @@ b8 Engine::render()
 		}
 	}
 	ImGui::End();
-
-	//_logic->on_render();
-
-	glViewport(0, 0, _desc->width, _desc->height);
-
-	// set irradiance, prefilter and brdf texture to its respective slots
-	m_ibl->bind(4, 5, 6);
-
-	m_model->render();
-
-	// draw skybox
-	auto cube = geometry::get_cube();
-	cube->vao->bind();
-	auto skybox_shader = m_renderer->get_shader("cubemap");
-	skybox_shader->bind();
-	m_ibl->bind_env(0);
-	glDisable(GL_CULL_FACE);
-	glDepthFunc(GL_LEQUAL);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glDepthFunc(GL_LESS);
-	glEnable(GL_CULL_FACE);
-	cube->vao->unbind();
 
 	return true;
 }
