@@ -214,8 +214,8 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("laptop");
-	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
+	m_model = Model::create("hideout");
+	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
 	auto path = ResourceState::get()->getTexturePath("rural_asphalt_road_16k.hdr");
 	m_ibl = IBL::create(path);
@@ -234,7 +234,6 @@ b8 Engine::init()
 void Engine::run()
 {
 	init();
-
 
 	while (!glfwWindowShouldClose(_window))
 	{

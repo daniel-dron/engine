@@ -2,6 +2,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 
+#include <iostream>
+
 Node::Node(std::vector<std::shared_ptr<Mesh>> meshes, const glm::mat4& transform)
 	: m_meshes(meshes), m_transform(transform)
 {
@@ -32,6 +34,21 @@ Model::Model(const std::string& name) {
 
 	Assimp::Importer importer;
 	const auto p_scene = importer.ReadFile((path / "scene.gltf").string(), aiProcess_Triangulate | aiProcess_CalcTangentSpace);
+	auto has_materials = p_scene->HasMaterials();
+	auto n_materials = p_scene->mNumMaterials;
+	for (u32 i = 0; i < n_materials; i++) {
+		KDEBUG("Material [{}] : {}", i, p_scene->mMaterials[i]->GetName().C_Str());
+
+		auto material = p_scene->mMaterials[i];
+		aiString test;
+		auto res = material->GetTexture(aiTextureType_DIFFUSE, 0, &test);
+		if (res == aiReturn_FAILURE) {
+			KDEBUG("No diffuse texture");
+		}
+		else {
+			KDEBUG("Diffuse texture: {}", test.C_Str());
+		}
+	}
 
 	for (u64 i = 0; i < p_scene->mNumMeshes; i++) {
 		const auto mesh = p_scene->mMeshes[i];

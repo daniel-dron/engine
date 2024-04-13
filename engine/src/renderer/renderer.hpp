@@ -10,6 +10,7 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
 #include "resources/framebuffer.hpp"
+#include "material.hpp"
 
 class Renderer {
 public:
@@ -27,6 +28,8 @@ public:
 	std::shared_ptr<ShaderProgram> get_shader(const std::string& name);
 	std::shared_ptr<Texture> get_texture(const std::string& path) const;
 	void add_texture(const std::string& path, std::shared_ptr<Texture> texture);
+	std::shared_ptr<PbrMaterial> get_pbr(const std::string& name) const;
+	void add_pbr(const std::string& name, std::shared_ptr<PbrMaterial> material);
 
 	std::unique_ptr<VertexArray> m_screen_vao;
 	std::shared_ptr<GlBuffer> m_screen_vbo;
@@ -34,6 +37,7 @@ public:
 private:
 	std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> m_shaders;
 	std::unordered_map<std::string, std::shared_ptr<Texture>> m_textures;
+	std::unordered_map<std::string, std::shared_ptr<PbrMaterial>> m_pbr_materials;
 
 	struct ViewMatrices {
 		glm::mat4 view;
@@ -52,4 +56,5 @@ private:
 
 	// screen quad
 	void init_screen_quad();
+	void init_default_pbr_material();
 };

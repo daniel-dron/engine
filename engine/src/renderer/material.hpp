@@ -2,8 +2,11 @@
 
 #include "renderer/resources/texture.hpp"
 #include "renderer/resources/shader_program.hpp"
+#include <assimp/material.h>
 
 struct PbrMaterial : public Bindable{
+	static std::shared_ptr<PbrMaterial> from_assimp(const aiMaterial* ai_material, const std::string& model_path);
+
 	float metallic_factor = 1.0f;
 	float roughness_factor = 1.0f;
 	float ao_factor = 1.0f;

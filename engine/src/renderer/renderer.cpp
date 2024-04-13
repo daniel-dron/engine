@@ -4,6 +4,7 @@
 #include <format>
 
 #include <imgui/imgui.h>
+#include <utils.hpp>
 
 Renderer::Renderer() {
 	// initialize camera matrices and uniform buffer
@@ -16,6 +17,71 @@ Renderer::Renderer() {
 
 	// initialize screen quad
 	init_screen_quad();
+
+	// initialize default pbr textures
+	// TODO: this should be in a material system type class
+	// but it's enough for current purposes
+	init_default_pbr_material();
+}
+
+void Renderer::init_default_pbr_material()
+{
+	auto albedo_path = ResourceState::get()->getTexturePath("default_albedo.png").string();
+	auto mra_path = ResourceState::get()->getTexturePath("default_mra.png").string();
+	auto normal_path = ResourceState::get()->getTexturePath("default_normal.png").string();
+	auto emissive_path = ResourceState::get()->getTexturePath("default_emissive.png").string();
+
+	{	// albedo
+		TextureSpecification spec{};
+		spec.slot = 0;
+		spec.path = albedo_path;
+		spec.internalFormat = GL_SRGB_ALPHA;
+		spec.format = GL_RGB;
+		auto texture = Texture::create(spec);
+		add_texture(spec.path, texture);
+	}
+
+	{	// normal
+		TextureSpecification spec{};
+		spec.slot = 1;
+		spec.path = normal_path;
+		spec.internalFormat = GL_RGBA;
+		spec.format = GL_RGB;
+		auto texture = Texture::create(spec);
+		add_texture(spec.path, texture);
+	}
+
+	{ // mra
+		TextureSpecification spec{};
+		spec.slot = 2;
+		spec.path = mra_path;
+		spec.internalFormat = GL_RGBA;
+		spec.format = GL_RGB;
+		auto texture = Texture::create(spec);
+		add_texture(spec.path, texture);
+	}
+
+	{ // emissive
+		TextureSpecification spec{};
+		spec.slot = 3;
+		spec.path = emissive_path;
+		spec.internalFormat = GL_SRGB_ALPHA;
+		spec.format = GL_RGB;
+		auto texture = Texture::create(spec);
+		add_texture(spec.path, texture);
+	}
+
+	PbrMaterial material = {};
+	material.metallic_factor = 1.0f;
+	material.roughness_factor = 1.0f;
+	material.ao_factor = 1.0f;
+	material.emissive_factor = 1.0f;
+	material.albedo = get_texture(albedo_path);
+	material.mra = get_texture(mra_path);
+	material.normal = get_texture(normal_path);
+	material.emissive = get_texture(emissive_path);
+	material.shader = get_shader("pbr");
+	add_pbr("default_pbr", std::make_shared<PbrMaterial>(material));
 }
 
 void Renderer::update_view(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& eye_pos) {
@@ -38,8 +104,6 @@ std::shared_ptr<ShaderProgram> Renderer::get_shader(const std::string& name) {
 
 std::shared_ptr<Texture> Renderer::get_texture(const std::string& path) const
 {
-	std::shared_ptr<Texture> texture;
-
 	if (m_textures.find(path) == m_textures.end()) {
 		// create texture	
 		return nullptr;
@@ -124,6 +188,18 @@ void Renderer::invalidate_shaders()
 
 void Renderer::render_debug_menu()
 {
+	ImGui::Text("PBR default material");
+	auto material = get_pbr("default_pbr");
+	ImGui::Text("albedo: ");
+	utils::imgui_render_hoverable_image(material->albedo, ImVec2(200.0f, 200.0f));
+	ImGui::Text("normals: ");
+	utils::imgui_render_hoverable_image(material->normal, ImVec2(200.0f, 200.0f));
+	ImGui::Text("mra: ");
+	utils::imgui_render_hoverable_image(material->mra, ImVec2(200.0f, 200.0f));
+	ImGui::Text("emissive: ");
+	utils::imgui_render_hoverable_image(material->emissive, ImVec2(200.0f, 200.0f));
+
+	ImGui::Separator();
 	ImGui::Checkbox("Use FXAA", &use_fxaa);
 	ImGui::BeginDisabled(!use_fxaa);
 	ImGui::DragFloat("Threshold", &luma_threshold, 0.05f, 0.0f, 1.0f);
@@ -146,4 +222,14 @@ void Renderer::render_debug_menu()
 	min_reduce = std::max(1.0f, min_reduce);
 
 	ImGui::EndDisabled();
+}
+
+std::shared_ptr<PbrMaterial> Renderer::get_pbr(const std::string& name) const {
+	auto material = m_pbr_materials.find(name);
+	if (material == m_pbr_materials.end()) return nullptr;
+	return material->second;
+}
+
+void Renderer::add_pbr(const std::string& name, std::shared_ptr<PbrMaterial> material) {
+	m_pbr_materials[name] = material;
 }
