@@ -111,7 +111,6 @@ void Mesh::render_menu_debug() const
 {
 #if GRAPHICS_DEBUG
 	ImGui::Text("Name: %s", m_name.c_str());
-
-	m_pbr->render_menu_debug();
+	ImGui::Text("Material: %s", m_pbr->name.c_str());
 #endif
 }
