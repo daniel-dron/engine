@@ -47,10 +47,10 @@ void Camera::move(Direction direction, f32 delta_time, f32 speed) {
         m_position += m_right * velocity;
         break;
     case UP:
-        m_position += m_up * velocity;
+        m_position += m_world_up * velocity;
         break;
     case DOWN:
-        m_position -= m_up * velocity;
+        m_position -= m_world_up * velocity;
         break;
     }
 }
