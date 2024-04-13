@@ -27,7 +27,8 @@ int main(int argc, char* argv[]) {
     desc->pos_y = 100;
     desc->width = 1920;
     desc->height = 1080;
-    desc->window_name = "default window name";
+    desc->fullscreen = false;
+    desc->window_name = "branch: dev-pbr";
     g_engine = Engine::create(std::move(desc));
 
     g_engine->add_logic("testbedd.dll");

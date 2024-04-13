@@ -11,6 +11,8 @@
 #include "camera.hpp"
 #include "renderer/renderer.hpp"
 #include <renderer/resources/framebuffer.hpp>
+#include <renderer/cubemap.hpp>
+#include <renderer/ibl.hpp>
 
 class Mesh;
 struct GLFWwindow;
@@ -23,6 +25,8 @@ struct app_desc {
 
     i32 width;
     i32 height;
+
+    bool fullscreen = false;
 
     std::string window_name;
 };
@@ -120,14 +124,18 @@ private:
     // clear keys
     void clear();
 
+    // IBL
+    std::shared_ptr<IBL> m_ibl;
+
     static void _window_size_callback(GLFWwindow* window, i32 width, i32 height);
     static void _cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos);
     static void _mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods);
     static void _key_callback(GLFWwindow* window, i32 key, i32 scan_code, i32 action, i32 mods);
+    static void _drop_callback(GLFWwindow* window, int count, const char** paths);
 
     GLFWwindow* _window; /**< The window of the application. */
     std::unique_ptr<app_desc> _desc; /**< The description of the application. */
-    std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
+    //std::unique_ptr<game_logic> _logic; /**< The logic of the game. */
 };
 
 extern std::unique_ptr<Engine> g_engine;

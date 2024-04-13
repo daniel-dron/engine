@@ -89,46 +89,8 @@ Mesh::Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& model_pa
 	vao_spec.vertex_buffer = m_vbuffer;
 	m_vao = VertexArray::create(vao_spec);
 
-	// load textures
-	{
-		const auto material = scene->mMaterials[mesh->mMaterialIndex];
-		auto load_texture = [&](aiTextureType type, u32 slot) -> std::shared_ptr<Texture> {
-			aiString texture_path;
-			auto ret = material->GetTexture(type, 0, &texture_path);
-			const auto path = std::filesystem::path(model_path) / texture_path.C_Str();
-			KDEBUG("Loading texture: %s", path.string().c_str());
-
-			TextureSpecification spec{};
-			spec.slot = slot;
-			spec.path = path.string();
-			spec.internalFormat = type == aiTextureType_DIFFUSE || aiTextureType_EMISSIVE ? GL_SRGB_ALPHA : GL_RGBA;
-			spec.format = GL_RGB;
-
-			auto texture = g_engine->get_renderer()->get_texture(path.string());
-			if (!texture) {
-				texture = Texture::create(spec);
-				g_engine->get_renderer()->add_texture(path.string(), texture);
-			}
-
-			return texture;
-			};
-
-		auto albedo = load_texture(aiTextureType_DIFFUSE, 0);
-		auto normal = load_texture(aiTextureType_NORMALS, 1);
-		auto mra = load_texture(aiTextureType_METALNESS, 2);
-		auto emissive = load_texture(aiTextureType_EMISSIVE, 3);
-
-		PbrMaterial pbr = {};
-		pbr.metallic_factor = 1.0f;
-		pbr.roughness_factor = 1.0f;
-		pbr.ao_factor = 1.0f;
-		pbr.albedo = albedo;
-		pbr.normal = normal;
-		pbr.mra = mra;
-		pbr.emissive = emissive;
-		pbr.shader = g_engine->get_renderer()->get_shader("pbr");
-		m_pbr = std::make_shared<PbrMaterial>(pbr);
-	}
+	const auto ai_material = scene->mMaterials[mesh->mMaterialIndex];
+	m_pbr = PbrMaterial::from_assimp(ai_material, model_path);
 }
 
 
@@ -149,7 +111,7 @@ void Mesh::render_menu_debug() const
 {
 #if GRAPHICS_DEBUG
 	ImGui::Text("Name: %s", m_name.c_str());
-	
+
 	m_pbr->render_menu_debug();
 #endif
 }

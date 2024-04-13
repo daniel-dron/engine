@@ -23,6 +23,7 @@
 #include "renderer/model.hpp"
 #include "renderer/resources/buffer.hpp"
 #include <utils.hpp>
+#include "renderer/geometry.hpp"
 
 std::unique_ptr<Engine> g_engine;
 
@@ -103,40 +104,66 @@ std::unique_ptr<Engine> Engine::create(std::unique_ptr<app_desc> desc)
 
 void Engine::add_logic(const std::string& dll_name)
 {
-	_logic = std::make_unique<game_logic>();
-	_logic->load_game("testbedd.dll");
+	//_logic = std::make_unique<game_logic>();
+	//_logic->load_game("testbedd.dll");
 }
 
 b8 Engine::init()
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#if GRAPHICS_DEBUG	
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#endif
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwSwapInterval(1);
 
-	_window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
-	if (_window == nullptr) {
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
-		throw std::exception();
-	}
+	if (_desc->fullscreen) {
+		const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+		glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+		glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+		glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-	glfwMakeContextCurrent(_window);
+		_window = glfwCreateWindow(mode->width, mode->height, _desc->window_name.c_str(), glfwGetPrimaryMonitor(), nullptr);
+		if (_window == nullptr) {
+			std::cout << "Failed to create GLFW window" << std::endl;
+			glfwTerminate();
+			throw std::exception();
+		}
+
+		glfwMakeContextCurrent(_window);
+		glfwSetWindowMonitor(_window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
+
+		_desc->width = mode->width;
+		_desc->height = mode->height;
+	}
+	else {
+		_window = glfwCreateWindow(_desc->width, _desc->height, _desc->window_name.c_str(), nullptr, nullptr);
+		if (!_window) {
+			std::cout << "Failed to create GLFW window" << std::endl;
+			glfwTerminate();
+			throw std::exception();
+		}
+
+		glfwMakeContextCurrent(_window);
+	}
 
 	// set callbacks
 	glfwSetWindowSizeCallback(_window, _window_size_callback);
 	glfwSetCursorPosCallback(_window, _cursor_callback);
 	glfwSetMouseButtonCallback(_window, _mouse_callback);
 	glfwSetKeyCallback(_window, _key_callback);
+	glfwSetDropCallback(_window, _drop_callback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		throw std::exception();
 	}
 
+#if GRAPHICS_DEBUG	
 	int flags = 0;
 	glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
 	if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
@@ -146,6 +173,7 @@ b8 Engine::init()
 		glDebugMessageCallback(glDebugOutput, nullptr);
 		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 	}
+#endif
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -168,9 +196,9 @@ b8 Engine::init()
 	{
 		TextureSpecification tspec = {};
 		tspec.internalFormat = GL_RGBA16F;
-		tspec.width = 1920;
-		tspec.height = 1080;
-		tspec.slot = 0;
+		tspec.width = _desc->width;
+		tspec.height = _desc->height;
+		//tspec.slot = 0;
 		auto texture = Texture::create(tspec);
 
 		tspec.slot = 1;
@@ -186,17 +214,11 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("damaged_helmet");
-	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.1f));
+	m_model = Model::create("hideout");
+	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
-	return _logic->on_init();
-
-	return true;
-}
-
-void Engine::run()
-{
-	init();
+	auto path = ResourceState::get()->getTexturePath("rural_asphalt_road_16k.hdr");
+	m_ibl = IBL::create(path);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
@@ -204,6 +226,14 @@ void Engine::run()
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+
+	//return _logic->on_init();
+	return true;
+}
+
+void Engine::run()
+{
+	init();
 
 	while (!glfwWindowShouldClose(_window))
 	{
@@ -230,36 +260,28 @@ void Engine::run()
 		glViewport(0, 0, _desc->width, _desc->height);
 
 		// render quad to screen
-		m_renderer->render_screen_framebuffer(m_screen);
+		m_renderer->render_screen_framebuffer(m_screen, _desc->width, _desc->height);
 
-		// render debug menus
+		// end frame
 		{
-			if (ImGui::Button("Reload Shaders")) {
-				m_renderer->get_shader("pbr")->invalidate();
-				m_model->render_menu_debug();
-			}
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+			auto backup = glfwGetCurrentContext();
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+			glfwMakeContextCurrent(backup);
 
-			// end frame
-			{
-				ImGui::Render();
-				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-				auto backup = glfwGetCurrentContext();
-				ImGui::UpdatePlatformWindows();
-				ImGui::RenderPlatformWindowsDefault();
-				glfwMakeContextCurrent(backup);
-
-				glfwSwapBuffers(glfwGetCurrentContext());
-			}
-
-			// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
-			this->clear();
-			glfwPollEvents();
+			glfwSwapBuffers(glfwGetCurrentContext());
 		}
 
+		// clear just-pressed keys (do it before poll new events to avoid clearing keys that were pressed in the same frame)
+		this->clear();
+		glfwPollEvents();
+
 	}
-	_logic->on_shutdown();
+
+	//_logic->on_shutdown();
 }
 
 b8 Engine::update()
@@ -303,7 +325,7 @@ b8 Engine::update()
 	);
 
 	// call game logic update
-	_logic->on_update();
+	//_logic->on_update();
 
 	if (keys[GLFW_KEY_ESCAPE].down) {
 		glfwSetWindowShouldClose(_window, true);
@@ -314,31 +336,90 @@ b8 Engine::update()
 
 b8 Engine::render()
 {
-	ImGui::ShowDemoWindow();
-
+	// overlay
+	if (false)
 	{
-		ImGui::Begin("dll");
-		if (ImGui::Button("Reload DLL")) {
-			if (_logic) {
-				_logic->load_game("testbedd.dll");
-
-				// call on_init after loading new dll
-				_logic->on_init();
-			}
+		ImGuiIO& io = ImGui::GetIO();
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+		const float PAD = 10.0f;
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+		ImVec2 work_size = viewport->WorkSize;
+		ImVec2 window_pos, window_pos_pivot;
+		window_pos.x = (work_pos.x + PAD);
+		window_pos.y = (work_pos.y + PAD);
+		window_pos_pivot.x = 0.0f;
+		window_pos_pivot.y = 0.0f;
+		ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		flags |= ImGuiWindowFlags_NoMove;
+		ImGui::SetNextWindowBgAlpha(0.35f);
+		ImGui::Begin("Controls", 0, flags);
+		{
+			ImGui::Text("Move: W/A/S/D");
+			ImGui::Text("Up/Down: SPACE/SHIFT");
+			ImGui::Text("Lock/Unlock Mouse: CTRL");
+			ImGui::Text("Close: ESCAPE");
+			ImGui::Separator();
+			ImGui::Text("Drag & Drop HDR files");
 		}
 		ImGui::End();
 	}
 
-
+	ImGui::Begin("OpenGL PBR + IBL (droon)");
 	{
-		ImGui::Begin("DEBUG");
-		ImGui::Text("FPS: %.1f", 1.0f / _delta);
-		ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
-		ImGui::End();
-	}
+		if (ImGui::CollapsingHeader("FXAA")) {
+			m_renderer->render_debug_menu();
+		}
+		if (ImGui::CollapsingHeader("Debug")) {
+			ImGui::Text("FPS: %.1f", 1.0f / _delta);
+			ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
+			if (ImGui::Button("Reload Shaders")) {
+				m_renderer->invalidate_shaders();
+			}
+		}
 
-	_logic->on_render();
+		if (ImGui::CollapsingHeader("IBL")) {
+			static char hdr_name[256] = "";
+			ImGui::InputText("HDR", hdr_name, IM_ARRAYSIZE(hdr_name));
+			if (ImGui::Button("Reload HDR")) {
+				auto path = ResourceState::get()->getTexturePath(hdr_name);
+				m_ibl = IBL::create(path);
+			}
+
+			if (m_ibl) {
+				utils::imgui_render_hoverable_image(m_ibl->get_hdri(), ImVec2(200.0f, 200.0f));
+				utils::imgui_render_hoverable_image(m_ibl->get_brdf(), ImVec2(200.0f, 200.0f));
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Rendering")) {
+			m_model->render_menu_debug();
+		}
+	}
+	ImGui::End();
+
+	//_logic->on_render();
+
+	glViewport(0, 0, _desc->width, _desc->height);
+
+	// set irradiance, prefilter and brdf texture to its respective slots
+	m_ibl->bind(4, 5, 6);
+
 	m_model->render();
+
+	// draw skybox
+	auto cube = geometry::get_cube();
+	cube->vao->bind();
+	auto skybox_shader = m_renderer->get_shader("cubemap");
+	skybox_shader->bind();
+	m_ibl->bind_env(0);
+	glDisable(GL_CULL_FACE);
+	glDepthFunc(GL_LEQUAL);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
+	cube->vao->unbind();
 
 	return true;
 }
@@ -364,8 +445,7 @@ void Engine::_window_size_callback(GLFWwindow* window, i32 width, i32 height)
 {
 	g_engine->_desc->width = width;
 	g_engine->_desc->height = height;
-	glViewport(0, 0, width, height);
-	g_engine->_logic->on_resize(width, height);
+	//g_engine->_logic->on_resize(width, height);
 }
 
 void Engine::_cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos)
@@ -405,6 +485,13 @@ void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action
 	else if (action == GLFW_RELEASE) {
 		g_engine->keys[key].down = false;
 		g_engine->keys[key].released = true;
+	}
+}
+
+void Engine::_drop_callback(GLFWwindow* window, int count, const char** paths) {
+	for (u32 i = 0; i < count; i++) {
+		auto path = ResourceState::get()->getTexturePath(paths[i]);
+		g_engine->m_ibl = IBL::create(path);
 	}
 }
 

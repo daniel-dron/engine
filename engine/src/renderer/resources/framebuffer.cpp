@@ -60,3 +60,12 @@ std::shared_ptr<Texture> Framebuffer::get_color_attachement(u32 slot) const
 {
 	return m_spec.color_attachements[slot];
 }
+
+void Framebuffer::rescale(u32 width, u32 height)
+{
+	bind();
+	if (m_spec.depth_stencil) {
+		glBindRenderbuffer(GL_RENDERBUFFER, m_depth_stencil_renderbuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	}
+}
