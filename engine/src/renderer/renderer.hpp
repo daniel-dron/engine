@@ -20,6 +20,7 @@ public:
 	}
 
 	Renderer();
+	void initialize();
 
 	void update_view(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& eye_pos);
 
@@ -33,8 +34,8 @@ public:
 	std::shared_ptr<PbrMaterial> get_pbr(const std::string& name) const;
 	void add_pbr(const std::string& name, std::shared_ptr<PbrMaterial> material);
 
-	void start_gbuffer_pass() { m_gbuffer->begin_pass(); }
 	std::unique_ptr<GBuffer>& get_gbuffer() { return m_gbuffer; }
+	LightingPass* get_light_pass() { return m_lighting_pass.get(); }
 
 	void inc_render_stats_triangles(u64 amount) {
 		triangles_rendered += amount;
@@ -45,12 +46,16 @@ public:
 	std::unique_ptr<VertexArray> m_screen_vao;
 	std::shared_ptr<GlBuffer> m_screen_vbo;
 	std::shared_ptr<GlBuffer> m_screen_ibo;
+
+    // IBL
+    std::shared_ptr<IBL> m_ibl;
 private:
 	std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> m_shaders;
 	std::unordered_map<std::string, std::shared_ptr<Texture>> m_textures;
 	std::unordered_map<std::string, std::shared_ptr<PbrMaterial>> m_pbr_materials;
 
 	std::unique_ptr<GBuffer> m_gbuffer;
+	std::unique_ptr<LightingPass> m_lighting_pass;
 
 	struct ViewMatrices {
 		glm::mat4 view;
@@ -72,4 +77,6 @@ private:
 	// screen quad
 	void init_screen_quad();
 	void init_default_pbr_material();
+	void init_gbuffer();
+	void init_lighting_pass();
 };

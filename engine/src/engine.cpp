@@ -187,6 +187,7 @@ b8 Engine::init()
 
 	// create renderer
 	m_renderer = Renderer::create();
+	m_renderer->initialize();
 
 	// create camera
 	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
@@ -217,8 +218,6 @@ b8 Engine::init()
 	m_model = Model::create("damaged_helmet");
 	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
-	auto path = ResourceState::get()->getTexturePath("poly_haven_studio_16k.hdr");
-	m_ibl = IBL::create(path);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
@@ -370,39 +369,38 @@ b8 Engine::render()
 
 	glViewport(0, 0, _desc->width, _desc->height);
 
-	// gbuffer pass
-	m_renderer->start_gbuffer_pass();
-	auto gbuffer_shader = m_renderer->get_shader("gbuffer");
-	m_model->render(gbuffer_shader, glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)));
+	// geometry pass
+	auto& gbuffer = m_renderer->get_gbuffer();
+	gbuffer->start();
+	{
+		gbuffer->render(m_model, glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)));
+	}
+	gbuffer->stop();
 
-	// forward rendering
-	m_screen->begin_pass();
-
-	if (m_render_deferred) {
-		auto deferred_pbr = m_renderer->get_shader("deferred_lighting");
-		deferred_pbr->bind();
-		m_ibl->bind(5, 6, 7);
-		auto& gbuffer = m_renderer->get_gbuffer();
-		gbuffer->bind_textures();
+	// lighting pass
+	auto lighting_pass = m_renderer->get_light_pass();
+	lighting_pass->start();
+	{
 		m_renderer->m_screen_vao->bind();
 		glDrawElements(GL_TRIANGLES, m_renderer->m_screen_ibo->get_count(), GL_UNSIGNED_INT, nullptr);
-		
-		// bitblt depth buffer to screen framebuffer
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, m_renderer->get_gbuffer()->get_resource_id());
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
-		glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	}
+	lighting_pass->stop();
 
-	// set irradiance, prefilter and brdf texture to its respective slots
-	m_ibl->bind(4, 5, 6);
-	m_model->render();
+	// bitblt depth buffer to screen framebuffer
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer->m_framebuffer->get_resource_id());
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
+	glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, lighting_pass->m_framebuffer->get_resource_id());
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
+	glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 	// draw skybox
 	auto cube = geometry::get_cube();
 	cube->vao->bind();
 	auto skybox_shader = m_renderer->get_shader("cubemap");
 	skybox_shader->bind();
-	m_ibl->bind_env(0);
+	m_renderer->m_ibl->bind_env(0);
 	glDisable(GL_CULL_FACE);
 	glDepthFunc(GL_LEQUAL);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -433,12 +431,12 @@ b8 Engine::render()
 			ImGui::InputText("HDR", hdr_name, IM_ARRAYSIZE(hdr_name));
 			if (ImGui::Button("Reload HDR")) {
 				auto path = ResourceState::get()->getTexturePath(hdr_name);
-				m_ibl = IBL::create(path);
+				m_renderer->m_ibl = IBL::create(path);
 			}
 
-			if (m_ibl) {
-				utils::imgui_render_hoverable_image(m_ibl->get_hdri(), ImVec2(200.0f, 200.0f));
-				utils::imgui_render_hoverable_image(m_ibl->get_brdf(), ImVec2(200.0f, 200.0f));
+			if (m_renderer->m_ibl) {
+				utils::imgui_render_hoverable_image(m_renderer->m_ibl->get_hdri(), ImVec2(200.0f, 200.0f));
+				utils::imgui_render_hoverable_image(m_renderer->m_ibl->get_brdf(), ImVec2(200.0f, 200.0f));
 			}
 		}
 
@@ -518,7 +516,7 @@ void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action
 void Engine::_drop_callback(GLFWwindow* window, int count, const char** paths) {
 	for (u32 i = 0; i < count; i++) {
 		auto path = ResourceState::get()->getTexturePath(paths[i]);
-		g_engine->m_ibl = IBL::create(path);
+		g_engine->m_renderer->m_ibl = IBL::create(path);
 	}
 }
 

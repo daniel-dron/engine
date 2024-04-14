@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <glm/glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm/gtc/matrix_transform.hpp>
 #include <filesystem>
 
 #include "resources/framebuffer.hpp"

@@ -126,9 +126,6 @@ private:
     // clear keys
     void clear();
 
-    // IBL
-    std::shared_ptr<IBL> m_ibl;
-
     static void _window_size_callback(GLFWwindow* window, i32 width, i32 height);
     static void _cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos);
     static void _mouse_callback(GLFWwindow* window, i32 button, i32 action, i32 mods);

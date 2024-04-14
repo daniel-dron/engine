@@ -22,7 +22,6 @@ add_executable(engine
 set_property(TARGET engine PROPERTY ENABLE_EXPORTS 1)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)
-set_target_properties(engine PROPERTIES LINK_FLAGS "/PROFILE")
 
 include_directories(C:/projects/engine/engine/src/)
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/)

@@ -1,73 +1,32 @@
 #include "gbuffer.hpp"
-#include <engine.hpp>
 
-GBuffer::GBuffer(u32 width, u32 height) : Framebuffer(create_spec(width, height)) {
+#include <engine.hpp>
+#include "model.hpp"
+
+GBuffer::GBuffer(FramebufferSpecification spec) {
+	m_framebuffer = Framebuffer::create(spec);
+	m_outputs.insert(m_outputs.end(), spec.color_attachements.begin(), spec.color_attachements.end());
 }
 
 std::shared_ptr<Texture> GBuffer::get_albedo() {
-	return m_spec.color_attachements.at(0);
+	return std::dynamic_pointer_cast<Texture>(m_outputs.at(0));
 }
 
 std::shared_ptr<Texture> GBuffer::get_normals() {
-	return m_spec.color_attachements.at(1);
+	return std::dynamic_pointer_cast<Texture>(m_outputs.at(1));
 }
 
 std::shared_ptr<Texture> GBuffer::get_mra() {
-	return m_spec.color_attachements.at(2);
+	return std::dynamic_pointer_cast<Texture>(m_outputs.at(2));
 }
 
 std::shared_ptr<Texture> GBuffer::get_emissive() {
-	return m_spec.color_attachements.at(3);
+	return std::dynamic_pointer_cast<Texture>(m_outputs.at(3));
 }
 
 std::shared_ptr<Texture> GBuffer::get_world() {
-	return m_spec.color_attachements.at(4);
-}
+	return std::dynamic_pointer_cast<Texture>(m_outputs.at(4));
 
-FramebufferSpecification GBuffer::create_spec(u32 width, u32 height) {
-	//
-	// create the 4 gbuffer textures
-	//
-	
-	std::vector<std::shared_ptr<Texture>> color_attachements;
-	TextureSpecification spec{};
-	spec.width = width;
-	spec.height = height;
-
-	// 1. albedo (HDR)
-	spec.internalFormat = GL_RGBA16F;
-	spec.slot = 0;
-	color_attachements.push_back(Texture::create(spec));
-
-	// 2. normals (HDR)
-	spec.internalFormat = GL_RGBA16F;
-	spec.slot = 1;
-	color_attachements.push_back(Texture::create(spec));
-
-	// 3. mra (r-ambient occlusion, g-roughness, b-metallic)
-	spec.internalFormat = GL_RGBA16F;
-	spec.slot = 2;
-	color_attachements.push_back(Texture::create(spec));
-
-	// 4. emissive (HDR)
-	spec.internalFormat = GL_RGBA16F;
-	spec.slot = 3;
-	color_attachements.push_back(Texture::create(spec));
-
-	// 5. position (HDR for precision)
-	spec.internalFormat = GL_RGBA16F;
-	spec.slot = 4;
-	color_attachements.push_back(Texture::create(spec));
-
-	//
-	FramebufferSpecification frame_spec{};
-	frame_spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	frame_spec.color_attachements = color_attachements;
-	frame_spec.depth_stencil = true;
-	frame_spec.width = width;
-	frame_spec.height = height;
-
-	return frame_spec;
 }
 
 void GBuffer::bind_textures() {
@@ -76,4 +35,62 @@ void GBuffer::bind_textures() {
 	get_mra()->bind();
 	get_emissive()->bind();
 	get_world()->bind();
+}
+
+void RenderPass::start() {
+	m_shader->bind();
+	m_framebuffer->begin_pass();
+
+	for (const auto& bindable : m_dependencies) {
+		bindable->bind();
+	}
+
+	for (const auto& bindable : m_outputs) {
+		bindable->bind();
+	}
+}
+
+void RenderPass::stop() {
+	m_shader->unbind();
+	m_framebuffer->unbind();
+}
+
+void RenderPass::render(const std::shared_ptr<Model>& model, const glm::mat4& transform) {
+	model->render(m_shader, transform);
+}
+
+void RenderPass::set_shader(std::shared_ptr<ShaderProgram> shader) {
+	m_shader = shader;
+}
+
+void RenderPass::set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) {
+	m_framebuffer = framebuffer;
+}
+
+void RenderPass::addDependencyBindable(std::shared_ptr<Bindable> bindable) {
+	m_dependencies.push_back(std::move(bindable));
+}
+
+void RenderPass::addOutputBindables(std::shared_ptr<Bindable> bindable) {
+	m_outputs.push_back(std::move(bindable));
+}
+
+
+LightingPass::LightingPass(
+	FramebufferSpecification spec,
+	std::shared_ptr<ShaderProgram> shader,
+	std::vector<std::shared_ptr<Bindable>> gbuffer_textures,
+	std::shared_ptr<IBL> ibl) {
+
+	m_framebuffer = Framebuffer::create(spec);
+	m_shader = shader;
+	m_ibl = ibl;
+
+	m_dependencies.insert(m_dependencies.begin(), gbuffer_textures.begin(), gbuffer_textures.end());
+}
+
+void LightingPass::start() {
+	RenderPass::start();
+
+	m_ibl->bind(5, 6, 7);
 }

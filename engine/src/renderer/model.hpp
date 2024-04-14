@@ -1,10 +1,10 @@
 #pragma once
 
-#include "mesh.hpp"
 #include <assimp/matrix4x4.h>
 #include <assimp/scene.h>
 #include <memory>
 #include "resources/shader_program.hpp"
+#include "mesh.hpp"
 
 class Node {
 	friend class Model;
