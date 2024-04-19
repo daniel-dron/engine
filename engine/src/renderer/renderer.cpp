@@ -24,12 +24,11 @@ Renderer::Renderer() {
 	// TODO: this should be in a material system type class
 	// but it's enough for current purposes
 	init_default_pbr_material();
-
 }
 
 void Renderer::initialize() {
 	// IBL
-	auto path = ResourceState::get()->getTexturePath("Jewelry-HDRI-black-contrast.hdr");
+	auto path = ResourceState::get()->getTexturePath("kloofendal_overcast_puresky_8k.hdr");
 	m_ibl = IBL::create(path);
 
 	// create gbuffer

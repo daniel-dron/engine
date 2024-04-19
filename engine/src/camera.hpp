@@ -21,6 +21,8 @@ public:
     glm::mat4 get_view_matrix() const;
     glm::mat4 get_projection_matrix() const;
 
+    void render_debug_menu();
+
 private:
     glm::vec3 m_position;
     glm::vec3 m_front;

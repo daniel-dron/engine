@@ -190,8 +190,8 @@ b8 Engine::init()
 	m_renderer->initialize();
 
 	// create camera
-	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
-	m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
+	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.01f, 10000.0f);
+	m_camera->set_position(glm::vec3(0.0f, 1.0f, 3.0f));
 
 	// create screen framebuffer
 	{
@@ -215,9 +215,13 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("damaged_helmet");
-	//m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
+	auto model = Model::create("floor");
+	model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
 
+	auto helmet = Model::create("damaged_helmet");
+
+	m_models.push_back(model);
+	m_models.push_back(helmet);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
@@ -226,16 +230,30 @@ b8 Engine::init()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
+	// blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	//return _logic->on_init();
 	return true;
 }
 
+#include <chrono>
+
 void Engine::run()
 {
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::duration;
+	using std::chrono::milliseconds;
+
 	init();
 
 	while (!glfwWindowShouldClose(_window))
 	{
+
+		auto t1 = high_resolution_clock::now();
+
 		glfwGetCurrentContext();
 
 		update();
@@ -278,6 +296,10 @@ void Engine::run()
 		this->clear();
 		glfwPollEvents();
 
+		auto t2 = high_resolution_clock::now();
+
+		duration<double, std::milli> ms_double = t2 - t1;
+		_frame_time = ms_double.count();
 	}
 
 	//_logic->on_shutdown();
@@ -373,7 +395,8 @@ b8 Engine::render()
 	auto& gbuffer = m_renderer->get_gbuffer();
 	gbuffer->start();
 	{
-		gbuffer->render(m_model, glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)));
+		for (const auto& model : m_models) 
+			gbuffer->render(model, glm::mat4(1.0f));
 	}
 	gbuffer->stop();
 
@@ -413,8 +436,14 @@ b8 Engine::render()
 		if (ImGui::CollapsingHeader("FXAA")) {
 			m_renderer->render_debug_menu();
 		}
+
+		if (ImGui::CollapsingHeader("Camera")) {
+			m_camera->render_debug_menu();
+		}
+
 		if (ImGui::CollapsingHeader("Debug")) {
 			ImGui::Text("FPS: %.1f", 1.0f / _delta);
+			ImGui::Text("Frametime: %0.01f", _frame_time);
 			ImGui::Text("Triangles: %ld", m_renderer->get_rendered_triangles());
 			m_renderer->reset_rendered_triangles();
 
@@ -440,9 +469,9 @@ b8 Engine::render()
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Rendering")) {
-			m_model->render_menu_debug();
-		}
+		//if (ImGui::CollapsingHeader("Rendering")) {
+		//	m_model->render_menu_debug();
+		//}
 	}
 	ImGui::End();
 
@@ -516,7 +545,7 @@ void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action
 void Engine::_drop_callback(GLFWwindow* window, int count, const char** paths) {
 	for (u32 i = 0; i < count; i++) {
 		auto path = ResourceState::get()->getTexturePath(paths[i]);
-		g_engine->m_renderer->m_ibl = IBL::create(path);
+		g_engine->m_renderer->m_ibl->reload_ibl(path.string());
 	}
 }
 
