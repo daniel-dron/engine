@@ -5,7 +5,8 @@
 
 IBL::IBL(const std::filesystem::path& hdr_path)
 {
-	_load_ibl_maps(hdr_path.string());
+	reload_ibl(hdr_path.string());
+	_initialize_bdrf_texture();
 }
 
 void IBL::bind(u32 irradiance_slot, u32 prefilter_slot, u32 brdf_slot)
@@ -28,7 +29,7 @@ std::shared_ptr<Texture> IBL::get_brdf() const {
 	return m_brdf;
 }
 
-void IBL::_load_ibl_maps(const std::string& hdr_name)
+void IBL::reload_ibl(const std::string& hdr_name)
 {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
@@ -36,7 +37,6 @@ void IBL::_load_ibl_maps(const std::string& hdr_name)
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	_initialize_ibl(hdr_name);
 	_initialize_specular_ibl();
-	_initialize_bdrf_texture();
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -184,6 +184,8 @@ void IBL::_initialize_bdrf_texture()
 	brdf_spec.type = GL_FLOAT;
 	brdf_spec.width = 512;
 	brdf_spec.height = 512;
+	brdf_spec.wrapS = GL_CLAMP_TO_EDGE;
+	brdf_spec.wrapT = GL_CLAMP_TO_EDGE;
 	m_brdf = Texture::create(brdf_spec);
 
 	m_capture_framebuffer->bind();
