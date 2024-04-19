@@ -34,6 +34,9 @@ void Renderer::initialize() {
 	// create gbuffer
 	init_gbuffer();
 
+	// shadow map pass
+	init_shadowmap_pass();
+
 	// lighting pass
 	init_lighting_pass();
 }
@@ -166,7 +169,19 @@ void Renderer::init_lighting_pass() {
 	frame_spec.width = 1920;
 	frame_spec.height = 1080;
 	
-	m_lighting_pass = std::make_unique<LightingPass>(frame_spec, shader, m_gbuffer->m_outputs, m_ibl);
+	m_lighting_pass = std::make_unique<LightingPass>(frame_spec, shader, m_gbuffer->m_outputs, m_ibl, m_shadow_map_pass.get());
+}
+
+void Renderer::init_shadowmap_pass() {
+	auto shader = ShaderProgram::create("shadow_map.vert", "shadow_map.frag");
+	m_shaders["shadow_map"] = shader;
+
+	FramebufferSpecification frame_spec{};
+	frame_spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_spec.color_attachements = {};
+	frame_spec.depth_stencil = false;
+
+	m_shadow_map_pass = std::make_unique<ShadowMapPass>(frame_spec, shader);
 }
 
 void Renderer::update_view(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& eye_pos) {

@@ -216,12 +216,13 @@ b8 Engine::init()
 
 	// model
 	auto model = Model::create("floor");
-	model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
+	model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.01f)) * model->get_root()->m_transform;
 
-	auto helmet = Model::create("damaged_helmet");
+	auto sculpture = Model::create("damaged_helmet");
+	sculpture->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f)) * sculpture->get_root()->m_transform;
 
 	m_models.push_back(model);
-	m_models.push_back(helmet);
+	m_models.push_back(sculpture);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
@@ -389,8 +390,17 @@ b8 Engine::render()
 
 	//_logic->on_render();
 
-	glViewport(0, 0, _desc->width, _desc->height);
+	// shadow map pass
+	auto sm_pass = m_renderer->get_shadow_map_pass();
+	sm_pass->render_debug_menu();
+	sm_pass->start();
+	{
+		for (const auto& model : m_models) 
+			sm_pass->render(model, glm::mat4(1.0f));
+	}
+	sm_pass->stop();
 
+	glViewport(0, 0, _desc->width, _desc->height);
 	// geometry pass
 	auto& gbuffer = m_renderer->get_gbuffer();
 	gbuffer->start();

@@ -36,6 +36,7 @@ public:
 
 	std::unique_ptr<GBuffer>& get_gbuffer() { return m_gbuffer; }
 	LightingPass* get_light_pass() { return m_lighting_pass.get(); }
+	ShadowMapPass* get_shadow_map_pass() { return m_shadow_map_pass.get(); }
 
 	void inc_render_stats_triangles(u64 amount) {
 		triangles_rendered += amount;
@@ -54,8 +55,10 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<Texture>> m_textures;
 	std::unordered_map<std::string, std::shared_ptr<PbrMaterial>> m_pbr_materials;
 
+	// render passes
 	std::unique_ptr<GBuffer> m_gbuffer;
 	std::unique_ptr<LightingPass> m_lighting_pass;
+	std::unique_ptr<ShadowMapPass> m_shadow_map_pass;
 
 	struct ViewMatrices {
 		glm::mat4 view;
@@ -70,7 +73,7 @@ private:
 	float mul_reduce = 8.0f;
 	float min_reduce = 128.0f;
 	float max_span = 8.0f;
-	bool use_fxaa = true;
+	bool use_fxaa = false;
 
 	u64 triangles_rendered = 0;
 
@@ -79,4 +82,5 @@ private:
 	void init_default_pbr_material();
 	void init_gbuffer();
 	void init_lighting_pass();
+	void init_shadowmap_pass();
 };

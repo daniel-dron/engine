@@ -37,11 +37,35 @@ public:
 	void bind_textures();
 };
 
+class ShadowMapPass : public RenderPass {
+public:
+	ShadowMapPass(FramebufferSpecification spec, std::shared_ptr<ShaderProgram> shader);
+
+	void set_light_position(const glm::vec3& pos);
+	void start() override;
+	void stop() override;
+
+	std::shared_ptr<Texture> get_depth_texture();
+	glm::mat4 get_light_space();
+
+	void render_debug_menu();
+private:
+	float near_plane = 0.010f;
+	float far_plane = 25.0f;
+	float bounds = 13.0f;
+	float m_distance = 6.0f;
+	
+	glm::vec3 light_position = glm::vec3(1.0f);
+	std::shared_ptr<Texture> m_shadow_texture;
+};
+
+
 class LightingPass : public RenderPass {
 public:
-	LightingPass(FramebufferSpecification spec, std::shared_ptr<ShaderProgram> shader, std::vector<std::shared_ptr<Bindable>> gbuffer_textures, std::shared_ptr<IBL> ibl);
+	LightingPass(FramebufferSpecification spec, std::shared_ptr<ShaderProgram> shader, std::vector<std::shared_ptr<Bindable>> gbuffer_textures, std::shared_ptr<IBL> ibl, ShadowMapPass* shadow_pass);
 
 	void start() override;
 private:
 	std::shared_ptr<IBL> m_ibl;
+	ShadowMapPass* m_shadow_pass;
 };

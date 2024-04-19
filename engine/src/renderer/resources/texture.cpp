@@ -37,7 +37,7 @@ void Texture::unbind() {
 
 void Texture::bind_to_framebuffer(u32 attachement_slot) const
 {
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachement_slot, m_spec.target, m_id, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, m_spec.attachement_target + attachement_slot, m_spec.target, m_id, 0);
 }
 
 void Texture::loadHdrFromFile() {

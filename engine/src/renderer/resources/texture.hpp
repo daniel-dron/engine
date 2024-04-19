@@ -25,6 +25,8 @@ struct TextureSpecification {
     GLenum minFilter = GL_LINEAR;
     GLenum magFilter = GL_LINEAR;
 
+    GLenum attachement_target = GL_COLOR_ATTACHMENT0;
+
     bool generateMipmaps = true;
     bool hdr = false;
     bool flip_y = true;
@@ -42,6 +44,7 @@ public:
     void bind(u32 slot);
     void unbind() override;
     void bind_to_framebuffer(u32 attachement_slot) const;
+    TextureSpecification& get_spec() { return m_spec; }
 
     u32 get_width() const;
     u32 get_height() const;

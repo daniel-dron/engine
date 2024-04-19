@@ -17,6 +17,9 @@ layout(binding = 4) uniform sampler2D world_map;
 layout(binding = 5) uniform samplerCube irradiance_map;
 layout(binding = 6) uniform samplerCube prefilter_map;
 layout(binding = 7) uniform sampler2D brdf_lut;
+layout(binding = 8) uniform sampler2D shadow_map;
+
+uniform mat4 light_space_matrix;
 
 // lights
 uniform vec3 lightPositions[4] = {
@@ -28,6 +31,10 @@ uniform vec3 lightColors[4] = {
 	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f),
 	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f)        
 };
+
+vec3 sun_position = { 1.0f, 1.0f, 0.0f };
+vec3 sun_color = { 0.8f, 0.7f, 0.8f };
+float sun_intensity = 10.0f;
 
 float PI = 3.14159265359f;
 
@@ -113,9 +120,52 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
+    //
+    // sun
+    //
+    {
+        vec3 L = normalize(sun_position - vec3(0.0f, 0.0f, 0.0f));
+        vec3 H = normalize(V + L);
+
+        vec3 radiance = sun_color * sun_intensity;
+
+        vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+		float NDF = DistributionGGX(N, H, roughness);
+        float G   = GeometrySmith(N, V, L, roughness);
+
+        vec3 numerator    = NDF * G * F;
+        // add 0.0001 to the denominator to prevent divide by zero
+        float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
+        vec3 specular     = numerator / denominator;
+
+        vec3 kS = F;
+        vec3 kD = vec3(1.0f) - kS;
+
+        kD *= 1.0f - metallic;
+
+        float NdotL = max(dot(N, L), 0.0f);
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    }
+
+    // shadow
+    vec4 pos_light_space = light_space_matrix * vec4(position, 1.0f);
+    vec3 proj_coords = pos_light_space.xyz / pos_light_space.w;
+    proj_coords = proj_coords * 0.5f + 0.5f;
+    float closest_depth = texture(shadow_map, proj_coords.xy).r;
+    float current_depth = proj_coords.z;
+    float bias = max(0.005 * (1.0 - dot(normal, normalize(sun_position))), 0.005);  
+    float shadow = current_depth - bias > closest_depth ? 1.0 : 0.0; 
+    // if pixel is further than the shadow map, lets make it not shadow
+    if (proj_coords.z > 1.0f)
+        shadow = 0.0f;
+
+
     //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-    vec2 env_brdf = texture(brdf_lut, vec2(max(dot(N, V), 0.0f), roughness)).rg;
+    vec2 temp = vec2(max(dot(N, V), 0.0f), roughness);
+
+    vec2 env_brdf = texture(brdf_lut, temp).rg;
     const float MAX_REFLECTION_LOD = 4.0;
 
     // specular
@@ -128,8 +178,9 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     kD *= 1.0f - metallic;
     vec3 irradiance = texture(irradiance_map, N).rgb;
     vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse + specular) * ao;
-    vec3 color = ambient + Lo + emissive;
+    vec3 ambient =(kD * diffuse + specular) * ao;
+    vec3 color = ambient +  (1.0f - shadow) *  (Lo + emissive);
+
 
     return color;
 }
@@ -148,5 +199,5 @@ void main() {
 
     vec3 pbr_color = pbr(albedo, emissive, metallic, roughness, ao, normal, view_dir, position);
 
-	out_color = vec4(pbr_color, 1.0f);
+    out_color = vec4(pbr_color, 1.0f);
 }
