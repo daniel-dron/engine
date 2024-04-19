@@ -24,6 +24,7 @@ public:
 
     Mesh(const aiMesh *mesh, const aiScene *scene, const std::string &model_path);
 
+    void render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& model) const;
     void render(const glm::mat4 &model) const;
     std::string get_name() const;
 

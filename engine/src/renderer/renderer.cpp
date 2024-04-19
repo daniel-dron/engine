@@ -2,9 +2,11 @@
 
 #include <iostream>
 #include <format>
-
 #include <imgui/imgui.h>
 #include <utils.hpp>
+#include <memory>
+
+#include <engine.hpp>
 
 Renderer::Renderer() {
 	// initialize camera matrices and uniform buffer
@@ -22,6 +24,21 @@ Renderer::Renderer() {
 	// TODO: this should be in a material system type class
 	// but it's enough for current purposes
 	init_default_pbr_material();
+}
+
+void Renderer::initialize() {
+	// IBL
+	auto path = ResourceState::get()->getTexturePath("kloofendal_overcast_puresky_8k.hdr");
+	m_ibl = IBL::create(path);
+
+	// create gbuffer
+	init_gbuffer();
+
+	// shadow map pass
+	init_shadowmap_pass();
+
+	// lighting pass
+	init_lighting_pass();
 }
 
 void Renderer::init_default_pbr_material()
@@ -82,6 +99,89 @@ void Renderer::init_default_pbr_material()
 	material.emissive = get_texture(emissive_path);
 	material.shader = get_shader("pbr");
 	add_pbr("default_pbr", std::make_shared<PbrMaterial>(material));
+}
+
+void Renderer::init_gbuffer() {
+	//
+	// create the 4 gbuffer textures
+	//
+	std::vector<std::shared_ptr<Texture>> color_attachements;
+	TextureSpecification spec{};
+	spec.width = 1920;
+	spec.height = 1080;
+
+	// 1. albedo (HDR)
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 0;
+	color_attachements.push_back(Texture::create(spec));
+
+	// 2. normals (HDR)
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 1;
+	color_attachements.push_back(Texture::create(spec));
+
+	// 3. mra (r-ambient occlusion, g-roughness, b-metallic)
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 2;
+	color_attachements.push_back(Texture::create(spec));
+
+	// 4. emissive (HDR)
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 3;
+	color_attachements.push_back(Texture::create(spec));
+
+	// 5. position (HDR for precision)
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 4;
+	color_attachements.push_back(Texture::create(spec));
+
+	//
+	FramebufferSpecification frame_spec{};
+	frame_spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_spec.color_attachements = color_attachements;
+	frame_spec.depth_stencil = true;
+	frame_spec.width = 1920;
+	frame_spec.height = 1080;
+
+	m_gbuffer = std::make_unique<GBuffer>(frame_spec);	// create gbuffer
+
+	// set shader
+	m_shaders["gbuffer"] = ShaderProgram::create("gbuffer.vert", "gbuffer.frag");
+	m_gbuffer->m_shader = m_shaders["gbuffer"];
+
+}
+
+void Renderer::init_lighting_pass() {
+	auto shader = ShaderProgram::create("deferred_lighting.vert", "deferred_lighting.frag");
+	m_shaders["deferred_lighting"] = shader;
+
+	TextureSpecification spec{};
+	spec.width = 1920;
+	spec.height = 1080;
+	spec.internalFormat = GL_RGBA16F;
+	spec.slot = 0;
+	auto texture = Texture::create(spec);
+
+	FramebufferSpecification frame_spec{};
+	frame_spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_spec.color_attachements = { texture };
+	frame_spec.depth_stencil = false;
+	frame_spec.width = 1920;
+	frame_spec.height = 1080;
+	
+	m_lighting_pass = std::make_unique<LightingPass>(frame_spec, shader, m_gbuffer->m_outputs, m_ibl, m_shadow_map_pass.get());
+}
+
+void Renderer::init_shadowmap_pass() {
+	auto shader = ShaderProgram::create("shadow_map.vert", "shadow_map.frag");
+	m_shaders["shadow_map"] = shader;
+
+	FramebufferSpecification frame_spec{};
+	frame_spec.clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_spec.color_attachements = {};
+	frame_spec.depth_stencil = false;
+
+	m_shadow_map_pass = std::make_unique<ShadowMapPass>(frame_spec, shader);
 }
 
 void Renderer::update_view(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& eye_pos) {

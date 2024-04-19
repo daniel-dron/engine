@@ -1,35 +1,25 @@
 #version 430 core
 
-layout (location = 0) out vec4 FragColor;
-layout (location = 1) out vec4 BrightColor;
-
-in VS_OUT {
-    vec3 normal;
-    vec2 uvs;
-    vec3 fragPos;
-    vec4 spacePos;
-    vec4 fragPosLightSpace;
-    mat3 TBN;
-} fs_in;
+out vec4 out_color; 
+in vec2 tex_coords;
 
 layout (std140, binding = 0) uniform Matrices {
     mat4 view;
     mat4 projection;
-    vec3 eyePos;
+    vec3 eye_pos;
 };
 
 layout(binding = 0) uniform sampler2D albedo_map;
 layout(binding = 1) uniform sampler2D normal_map;
 layout(binding = 2) uniform sampler2D mra_map;
 layout(binding = 3) uniform sampler2D emissive_map;
-layout(binding = 4) uniform samplerCube irradiance_map;
-layout(binding = 5) uniform samplerCube prefilter_map;
-layout(binding = 6) uniform sampler2D brdf_lut;
+layout(binding = 4) uniform sampler2D world_map;
+layout(binding = 5) uniform samplerCube irradiance_map;
+layout(binding = 6) uniform samplerCube prefilter_map;
+layout(binding = 7) uniform sampler2D brdf_lut;
+layout(binding = 8) uniform sampler2D shadow_map;
 
-uniform float metallic_factor = 1.0f;
-uniform float roughness_factor = 1.0f;
-uniform float emissive_factor = 1.0f;
-uniform float ao_factor = 1.0f;
+uniform mat4 light_space_matrix;
 
 // lights
 uniform vec3 lightPositions[4] = {
@@ -41,6 +31,10 @@ uniform vec3 lightColors[4] = {
 	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f),
 	vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f)        
 };
+
+vec3 sun_position = { 1.0f, 1.0f, 0.0f };
+vec3 sun_color = { 0.8f, 0.7f, 0.8f };
+float sun_intensity = 10.0f;
 
 float PI = 3.14159265359f;
 
@@ -84,19 +78,12 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
-vec3 getNormalFromMap()
-{
-    vec3 n = texture(normal_map, fs_in.uvs).rgb;
-    n = n * 2.0f - 1.0f;
-    return normalize(fs_in.TBN * n);
-}
-
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }   
 
-vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
+vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir, vec3 position) {
     vec3 N = normal;
     vec3 V = view_dir;
 
@@ -107,10 +94,10 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
 
     vec3 Lo = vec3(0.0f);
     for(int i = 0; i < 2; ++i) {
-        vec3 L = normalize(lightPositions[i] - fs_in.fragPos);
+        vec3 L = normalize(lightPositions[i] - position);
         vec3 H = normalize(V + L);
 
-        float distance = length(lightPositions[i] - fs_in.fragPos);
+        float distance = length(lightPositions[i] - position);
         float attenuation = 1.0f / (distance * distance);
         vec3 radiance = lightColors[i] * attenuation;
 
@@ -133,9 +120,52 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
+    //
+    // sun
+    //
+    {
+        vec3 L = normalize(sun_position - vec3(0.0f, 0.0f, 0.0f));
+        vec3 H = normalize(V + L);
+
+        vec3 radiance = sun_color * sun_intensity;
+
+        vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+		float NDF = DistributionGGX(N, H, roughness);
+        float G   = GeometrySmith(N, V, L, roughness);
+
+        vec3 numerator    = NDF * G * F;
+        // add 0.0001 to the denominator to prevent divide by zero
+        float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
+        vec3 specular     = numerator / denominator;
+
+        vec3 kS = F;
+        vec3 kD = vec3(1.0f) - kS;
+
+        kD *= 1.0f - metallic;
+
+        float NdotL = max(dot(N, L), 0.0f);
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    }
+
+    // shadow
+    vec4 pos_light_space = light_space_matrix * vec4(position, 1.0f);
+    vec3 proj_coords = pos_light_space.xyz / pos_light_space.w;
+    proj_coords = proj_coords * 0.5f + 0.5f;
+    float closest_depth = texture(shadow_map, proj_coords.xy).r;
+    float current_depth = proj_coords.z;
+    float bias = max(0.005 * (1.0 - dot(normal, normalize(sun_position))), 0.005);  
+    float shadow = current_depth - bias > closest_depth ? 1.0 : 0.0; 
+    // if pixel is further than the shadow map, lets make it not shadow
+    if (proj_coords.z > 1.0f)
+        shadow = 0.0f;
+
+
     //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-    vec2 env_brdf = texture(brdf_lut, vec2(max(dot(N, V), 0.0f), roughness)).rg;
+    vec2 temp = vec2(max(dot(N, V), 0.0f), roughness);
+
+    vec2 env_brdf = texture(brdf_lut, temp).rg;
     const float MAX_REFLECTION_LOD = 4.0;
 
     // specular
@@ -148,29 +178,26 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     kD *= 1.0f - metallic;
     vec3 irradiance = texture(irradiance_map, N).rgb;
     vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse + specular) * ao;
-    vec3 color = ambient + Lo + emissive;
+    vec3 ambient =(kD * diffuse + specular) * ao;
+    vec3 color = ambient +  (1.0f - shadow) *  (Lo + emissive);
+
 
     return color;
 }
 
 void main() {
-    vec3 N = getNormalFromMap();
-    vec3 V = normalize(eyePos - fs_in.fragPos);
+	vec3 position = texture(world_map, tex_coords).rgb;
 
-    vec3 albedo = texture(albedo_map, fs_in.uvs).rgb;
-    vec3 emissive = texture(emissive_map, fs_in.uvs).rgb * emissive_factor;
-    float metallic = texture(mra_map, fs_in.uvs).b * metallic_factor;
-    float roughness = texture(mra_map, fs_in.uvs).g * roughness_factor;
-    float ao = texture(mra_map, fs_in.uvs).r * ao_factor;
+	vec3 normal = texture(normal_map, tex_coords).rgb;
+	vec3 view_dir = normalize(eye_pos - position);
 
-    vec3 color = pbr(albedo, emissive, metallic, roughness, ao, N, V);
+	vec3 albedo = texture(albedo_map, tex_coords).rgb;
+	vec3 emissive = texture(emissive_map, tex_coords).rgb;
+	float metallic = texture(mra_map, tex_coords).b;
+	float roughness = texture(mra_map, tex_coords).g;
+	float ao = texture(mra_map, tex_coords).r;
 
-    FragColor = vec4(color, 1.0f);
+    vec3 pbr_color = pbr(albedo, emissive, metallic, roughness, ao, normal, view_dir, position);
 
-    float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-    if (brightness > 1.0f)
-        BrightColor = vec4(FragColor.rgb, 1.0f);
-    else
-        BrightColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    out_color = vec4(pbr_color, 1.0f);
 }

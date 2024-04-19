@@ -37,7 +37,7 @@ void Texture::unbind() {
 
 void Texture::bind_to_framebuffer(u32 attachement_slot) const
 {
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachement_slot, m_spec.target, m_id, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, m_spec.attachement_target + attachement_slot, m_spec.target, m_id, 0);
 }
 
 void Texture::loadHdrFromFile() {
@@ -116,7 +116,15 @@ void Texture::loadFromFile() {
 	glTexParameteri(m_spec.target, GL_TEXTURE_MIN_FILTER, m_spec.minFilter);
 	glTexParameteri(m_spec.target, GL_TEXTURE_MAG_FILTER, m_spec.magFilter);
 
-	glTexImage2D(m_spec.target, 0, m_spec.internalFormat, width, height, 0, channels > 3 ? GL_RGBA : GL_RGB, m_spec.type, data);
+	GLenum format = 0;
+	switch (channels) {
+	case 4: format = GL_RGBA; break;
+	case 3: format= GL_RGB; break;
+	case 2: format = GL_RG; break;
+	case 1: format = GL_R8; break;
+	}
+
+	glTexImage2D(m_spec.target, 0, m_spec.internalFormat, width, height, 0, format, m_spec.type, data);
 	if (m_spec.generateMipmaps)
 		glGenerateMipmap(m_spec.target);
 

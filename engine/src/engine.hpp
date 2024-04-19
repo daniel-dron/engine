@@ -112,9 +112,12 @@ public:
 private:
     f64 _delta;
     u64 _last_frame; 
+    f64 _frame_time;
+
+    bool m_render_deferred = false;
 
     std::shared_ptr<Camera> m_camera;
-    std::shared_ptr<Model> m_model;
+    std::vector<std::shared_ptr<Model>> m_models;
     std::unique_ptr<Renderer> m_renderer;
     std::shared_ptr<Framebuffer> m_screen;
 
@@ -123,9 +126,6 @@ private:
     
     // clear keys
     void clear();
-
-    // IBL
-    std::shared_ptr<IBL> m_ibl;
 
     static void _window_size_callback(GLFWwindow* window, i32 width, i32 height);
     static void _cursor_callback(GLFWwindow* window, f64 xpos, f64 ypos);

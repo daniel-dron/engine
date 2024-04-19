@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <glm/glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm/gtc/matrix_transform.hpp>
 #include <filesystem>
 
 #include "resources/framebuffer.hpp"
@@ -15,6 +15,7 @@ public:
 	}
 
 	IBL(const std::filesystem::path &hdr_path);
+	void reload_ibl(const std::string& hdr_name);
 
 	void bind(u32 irradiance_slot, u32 prefilter_slot, u32 brdf_slot);
 	void bind_env(u32 slot);
@@ -39,7 +40,6 @@ private:
 	glm::mat4 m_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.0f, 10.0f);
 	std::vector<glm::mat4> m_views;
 
-	void _load_ibl_maps(const std::string& hdr_name);
 	void _initialize_ibl(const std::string& hdr_name);
 	void _initialize_specular_ibl();
 	void _initialize_bdrf_texture();

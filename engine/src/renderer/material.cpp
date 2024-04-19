@@ -78,6 +78,9 @@ std::shared_ptr<PbrMaterial> PbrMaterial::from_assimp(const aiMaterial* ai_mater
 		if (texture) material->emissive = texture;
 	}
 
+	material->name = ai_material->GetName().C_Str();
+
+	renderer->add_pbr(ai_material->GetName().C_Str(), material);
 	return material;
 }
 

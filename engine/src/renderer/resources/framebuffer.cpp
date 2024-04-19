@@ -9,16 +9,6 @@ Framebuffer::Framebuffer(const FramebufferSpecification& spec)
 	glGenFramebuffers(1, &m_id);
 	glBindFramebuffer(GL_FRAMEBUFFER, m_id);
 
-	for (const auto& texture : m_spec.color_attachements) {
-		texture->bind_to_framebuffer(m_color_attachement_id++);
-	}
-
-	std::vector<u32> attachments;
-	for (int i = 0; i < m_color_attachement_id; i++) {
-		attachments.push_back(GL_COLOR_ATTACHMENT0 + i);
-	}
-
-	glDrawBuffers(m_color_attachement_id, attachments.data());
 
 	// create depth renderbuffer
 	if (m_spec.depth_stencil) {
@@ -27,6 +17,27 @@ Framebuffer::Framebuffer(const FramebufferSpecification& spec)
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, m_spec.width, m_spec.height);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depth_stencil_renderbuffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	} else {
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	}
+
+	for (const auto& texture : m_spec.color_attachements) {
+		texture->bind_to_framebuffer(m_color_attachement_id++);
+	}
+
+	std::vector<u32> attachments;
+	for (int i = 0; i < m_color_attachement_id; i++) {
+		if (m_spec.color_attachements[i]->get_spec().attachement_target == GL_DEPTH_ATTACHMENT)
+			continue;
+
+		attachments.push_back(GL_COLOR_ATTACHMENT0 + i);
+	}
+
+	if (attachments.size() == 0.0f) {
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+	} else {
+		glDrawBuffers(attachments.size(), attachments.data());
 	}
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {

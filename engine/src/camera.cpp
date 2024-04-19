@@ -1,7 +1,7 @@
 #include "camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
-
+#include <imgui/imgui.h>
 #include <iostream>
 #include <format>
 #include "defines.hpp"
@@ -47,10 +47,10 @@ void Camera::move(Direction direction, f32 delta_time, f32 speed) {
         m_position += m_right * velocity;
         break;
     case UP:
-        m_position += m_up * velocity;
+        m_position += m_world_up * velocity;
         break;
     case DOWN:
-        m_position -= m_up * velocity;
+        m_position -= m_world_up * velocity;
         break;
     }
 }
@@ -97,4 +97,8 @@ glm::mat4 Camera::get_view_matrix() const {
 
 glm::mat4 Camera::get_projection_matrix() const {
     return glm::perspective(glm::radians(m_fov), m_aspect_ratio, m_near, m_far);
+}
+
+void Camera::render_debug_menu() {
+    ImGui::DragFloat("Speed", &m_speed, 0.1f, 0.1f, 100.0f);
 }

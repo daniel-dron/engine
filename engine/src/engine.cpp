@@ -187,10 +187,11 @@ b8 Engine::init()
 
 	// create renderer
 	m_renderer = Renderer::create();
+	m_renderer->initialize();
 
 	// create camera
-	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.1f, 100.0f);
-	m_camera->set_position(glm::vec3(0.0f, 0.0f, 3.0f));
+	m_camera = Camera::create((f32)_desc->width / (f32)_desc->height, 45.0f, 0.01f, 10000.0f);
+	m_camera->set_position(glm::vec3(0.0f, 1.0f, 3.0f));
 
 	// create screen framebuffer
 	{
@@ -214,11 +215,14 @@ b8 Engine::init()
 	}
 
 	// model
-	m_model = Model::create("hideout");
-	m_model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f), glm::vec3(-90.0f, 0.0f, 0.0f), glm::vec3(0.01f));
+	auto model = Model::create("floor");
+	model->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.01f)) * model->get_root()->m_transform;
 
-	auto path = ResourceState::get()->getTexturePath("rural_asphalt_road_16k.hdr");
-	m_ibl = IBL::create(path);
+	auto sculpture = Model::create("damaged_helmet");
+	sculpture->get_root()->m_transform = utils::create_transform(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f)) * sculpture->get_root()->m_transform;
+
+	m_models.push_back(model);
+	m_models.push_back(sculpture);
 
 	// opengl settings
 	glEnable(GL_MULTISAMPLE);
@@ -227,16 +231,30 @@ b8 Engine::init()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
+	// blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	//return _logic->on_init();
 	return true;
 }
 
+#include <chrono>
+
 void Engine::run()
 {
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::duration;
+	using std::chrono::milliseconds;
+
 	init();
 
 	while (!glfwWindowShouldClose(_window))
 	{
+
+		auto t1 = high_resolution_clock::now();
+
 		glfwGetCurrentContext();
 
 		update();
@@ -279,6 +297,10 @@ void Engine::run()
 		this->clear();
 		glfwPollEvents();
 
+		auto t2 = high_resolution_clock::now();
+
+		duration<double, std::milli> ms_double = t2 - t1;
+		_frame_time = ms_double.count();
 	}
 
 	//_logic->on_shutdown();
@@ -366,13 +388,77 @@ b8 Engine::render()
 		ImGui::End();
 	}
 
+	//_logic->on_render();
+
+	// shadow map pass
+	auto sm_pass = m_renderer->get_shadow_map_pass();
+	sm_pass->render_debug_menu();
+	sm_pass->start();
+	{
+		for (const auto& model : m_models) 
+			sm_pass->render(model, glm::mat4(1.0f));
+	}
+	sm_pass->stop();
+
+	glViewport(0, 0, _desc->width, _desc->height);
+	// geometry pass
+	auto& gbuffer = m_renderer->get_gbuffer();
+	gbuffer->start();
+	{
+		for (const auto& model : m_models) 
+			gbuffer->render(model, glm::mat4(1.0f));
+	}
+	gbuffer->stop();
+
+	// lighting pass
+	auto lighting_pass = m_renderer->get_light_pass();
+	lighting_pass->start();
+	{
+		m_renderer->m_screen_vao->bind();
+		glDrawElements(GL_TRIANGLES, m_renderer->m_screen_ibo->get_count(), GL_UNSIGNED_INT, nullptr);
+	}
+	lighting_pass->stop();
+
+	// bitblt depth buffer to screen framebuffer
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer->m_framebuffer->get_resource_id());
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
+	glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, lighting_pass->m_framebuffer->get_resource_id());
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screen->get_resource_id());
+	glBlitFramebuffer(0, 0, _desc->width, _desc->height, 0, 0, _desc->width, _desc->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+	// draw skybox
+	auto cube = geometry::get_cube();
+	cube->vao->bind();
+	auto skybox_shader = m_renderer->get_shader("cubemap");
+	skybox_shader->bind();
+	m_renderer->m_ibl->bind_env(0);
+	glDisable(GL_CULL_FACE);
+	glDepthFunc(GL_LEQUAL);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
+	cube->vao->unbind();
+
 	ImGui::Begin("OpenGL PBR + IBL (droon)");
 	{
 		if (ImGui::CollapsingHeader("FXAA")) {
 			m_renderer->render_debug_menu();
 		}
+
+		if (ImGui::CollapsingHeader("Camera")) {
+			m_camera->render_debug_menu();
+		}
+
 		if (ImGui::CollapsingHeader("Debug")) {
 			ImGui::Text("FPS: %.1f", 1.0f / _delta);
+			ImGui::Text("Frametime: %0.01f", _frame_time);
+			ImGui::Text("Triangles: %ld", m_renderer->get_rendered_triangles());
+			m_renderer->reset_rendered_triangles();
+
+			ImGui::Checkbox("Deferred", &m_render_deferred);
+
 			ImGui::Text("Mouse Pos: %.1f, %.1f", mouse_pos.x, mouse_pos.y);
 			if (ImGui::Button("Reload Shaders")) {
 				m_renderer->invalidate_shaders();
@@ -384,42 +470,20 @@ b8 Engine::render()
 			ImGui::InputText("HDR", hdr_name, IM_ARRAYSIZE(hdr_name));
 			if (ImGui::Button("Reload HDR")) {
 				auto path = ResourceState::get()->getTexturePath(hdr_name);
-				m_ibl = IBL::create(path);
+				m_renderer->m_ibl = IBL::create(path);
 			}
 
-			if (m_ibl) {
-				utils::imgui_render_hoverable_image(m_ibl->get_hdri(), ImVec2(200.0f, 200.0f));
-				utils::imgui_render_hoverable_image(m_ibl->get_brdf(), ImVec2(200.0f, 200.0f));
+			if (m_renderer->m_ibl) {
+				utils::imgui_render_hoverable_image(m_renderer->m_ibl->get_hdri(), ImVec2(200.0f, 200.0f));
+				utils::imgui_render_hoverable_image(m_renderer->m_ibl->get_brdf(), ImVec2(200.0f, 200.0f));
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Rendering")) {
-			m_model->render_menu_debug();
-		}
+		//if (ImGui::CollapsingHeader("Rendering")) {
+		//	m_model->render_menu_debug();
+		//}
 	}
 	ImGui::End();
-
-	//_logic->on_render();
-
-	glViewport(0, 0, _desc->width, _desc->height);
-
-	// set irradiance, prefilter and brdf texture to its respective slots
-	m_ibl->bind(4, 5, 6);
-
-	m_model->render();
-
-	// draw skybox
-	auto cube = geometry::get_cube();
-	cube->vao->bind();
-	auto skybox_shader = m_renderer->get_shader("cubemap");
-	skybox_shader->bind();
-	m_ibl->bind_env(0);
-	glDisable(GL_CULL_FACE);
-	glDepthFunc(GL_LEQUAL);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glDepthFunc(GL_LESS);
-	glEnable(GL_CULL_FACE);
-	cube->vao->unbind();
 
 	return true;
 }
@@ -491,7 +555,7 @@ void Engine::_key_callback(GLFWwindow* window, i32 key, i32 scancode, i32 action
 void Engine::_drop_callback(GLFWwindow* window, int count, const char** paths) {
 	for (u32 i = 0; i < count; i++) {
 		auto path = ResourceState::get()->getTexturePath(paths[i]);
-		g_engine->m_ibl = IBL::create(path);
+		g_engine->m_renderer->m_ibl->reload_ibl(path.string());
 	}
 }
 

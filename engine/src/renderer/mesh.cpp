@@ -94,12 +94,41 @@ Mesh::Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& model_pa
 }
 
 
+void Mesh::render(const std::shared_ptr<ShaderProgram>& shader, const glm::mat4& model) const {
+	shader->bind();
+	shader->set_float("metallic_factor", m_pbr->metallic_factor);
+	shader->set_float("roughness_factor", m_pbr->roughness_factor);
+	shader->set_float("emissive_factor", m_pbr->emissive_factor);
+	shader->set_float("ao_factor", m_pbr->ao_factor);
+
+	if (m_pbr->albedo)
+		m_pbr->albedo->bind();
+
+	if (m_pbr->normal)
+		m_pbr->normal->bind();
+
+	if (m_pbr->mra)
+		m_pbr->mra->bind();
+
+	if (m_pbr->emissive)
+		m_pbr->emissive->bind();
+
+	shader->set_mat4("model", glm::value_ptr(model));
+	
+	m_vao->bind();
+	glDrawElements(GL_TRIANGLES, m_ibuffer->get_count(), GL_UNSIGNED_INT, nullptr);
+
+	g_engine->get_renderer()->inc_render_stats_triangles(m_ibuffer->get_count() / 3);
+}
+
 void Mesh::render(const glm::mat4& model) const {
 	m_pbr->bind();
 	m_pbr->shader->set_mat4("model", glm::value_ptr(model));
 
 	m_vao->bind();
 	glDrawElements(GL_TRIANGLES, m_ibuffer->get_count(), GL_UNSIGNED_INT, nullptr);
+
+	g_engine->get_renderer()->inc_render_stats_triangles(m_ibuffer->get_count() / 3);
 }
 
 std::string Mesh::get_name() const
@@ -111,7 +140,6 @@ void Mesh::render_menu_debug() const
 {
 #if GRAPHICS_DEBUG
 	ImGui::Text("Name: %s", m_name.c_str());
-
-	m_pbr->render_menu_debug();
+	ImGui::Text("Material: %s", m_pbr->name.c_str());
 #endif
 }

@@ -7,6 +7,8 @@
 struct PbrMaterial : public Bindable{
 	static std::shared_ptr<PbrMaterial> from_assimp(const aiMaterial* ai_material, const std::string& model_path);
 
+	std::string name;
+
 	float metallic_factor = 1.0f;
 	float roughness_factor = 1.0f;
 	float ao_factor = 1.0f;
